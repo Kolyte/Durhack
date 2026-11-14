@@ -40,6 +40,20 @@ export function getWindowTexture(): THREE.CanvasTexture {
   return windowTexture;
 }
 
+let whiteTexture: THREE.DataTexture | null = null;
+
+/**
+ * A 1×1 white texture. Non-city views use it as the emissive map so every file material has the
+ * same shader features in every view: switching views then never needs a shader recompile.
+ */
+export function getWhiteTexture(): THREE.DataTexture {
+  if (whiteTexture) return whiteTexture;
+  whiteTexture = new THREE.DataTexture(new Uint8Array([255, 255, 255, 255]), 1, 1);
+  whiteTexture.colorSpace = THREE.SRGBColorSpace;
+  whiteTexture.needsUpdate = true;
+  return whiteTexture;
+}
+
 /** Box whose side UVs are in "window units" (so window size is constant), roofs mapped to black. */
 function windowedBox(w: number, h: number, d: number): THREE.BufferGeometry {
   const g = new THREE.BoxGeometry(w, h, d);

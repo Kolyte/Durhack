@@ -22,3 +22,8 @@ export type Store<T extends object> = ReturnType<typeof createStore<T>>;
 export function useStore<T extends object>(store: Store<T>): T {
   return useSyncExternalStore(store.subscribe, store.get, store.get);
 }
+
+/** Subscribes to one derived value (compared with Object.is): re-renders only when that value changes. */
+export function useStoreSelector<T extends object, R>(store: Store<T>, select: (s: T) => R): R {
+  return useSyncExternalStore(store.subscribe, () => select(store.get()), () => select(store.get()));
+}

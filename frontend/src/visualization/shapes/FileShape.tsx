@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { FileInfo } from '../../model/repoModel';
 import type { ViewMode } from '../../types';
 import type { FileLayout } from '../layouts';
 import { livePositions, pulses, readDecay } from '../pulseBus';
-import { getWindowTexture, shapeFor } from './geometry';
+import { getWhiteTexture, getWindowTexture, shapeFor } from './geometry';
 
 interface Props {
   file: FileInfo;
@@ -21,11 +21,15 @@ interface Props {
 }
 
 const DARK = new THREE.Color('#0b1226');
+// Explicit defaults: React Three Fiber keeps a previous value when a prop disappears, so a part that
+// had a rotation/offset/scale in one view must be reset explicitly in the next.
+const ORIGIN: [number, number, number] = [0, 0, 0];
+const UNIT: [number, number, number] = [1, 1, 1];
 const tmpColor = new THREE.Color();
 const tmpVec = new THREE.Vector3();
 
 /** One file. Its geometry depends on its role (source, module, config, test, docs) and the view mode. */
-export function FileShape({ file, layout, mode, color, metric, emphasis, onSelect, onHover }: Props) {
+export const FileShape = memo(function FileShape({ file, layout, mode, color, metric, emphasis, onSelect, onHover }: Props) {
   const outer = useRef<THREE.Group>(null);
   const inner = useRef<THREE.Group>(null);
   const spinners = useRef(new Set<THREE.Mesh>());
@@ -41,18 +45,23 @@ export function FileShape({ file, layout, mode, color, metric, emphasis, onSelec
   const recipe = useMemo(() => shapeFor(file.kind, mode, h, s, footprint), [file.kind, mode, h, s, footprint]);
   useEffect(() => () => recipe.parts.forEach((p) => p.geometry.dispose()), [recipe]);
 
-  // Two materials per file: a body (windowed façade in City) and a solid accent glow.
-  const materials = useMemo(() => {
-    const body = new THREE.MeshStandardMaterial({
-      roughness: mode === 'city' ? 0.55 : 0.35,
-      metalness: mode === 'city' ? 0.5 : 0.3,
-      flatShading: mode === 'galaxy' && (file.kind === 'source' || file.kind === 'config'),
-      emissiveMap: mode === 'city' ? getWindowTexture() : null,
-      toneMapped: false,
-    });
-    const accent = new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.2, toneMapped: false });
-    return { body, accent };
-  }, [mode, file.kind]);
+  // Two materials per file (a body and a solid accent glow), created once and kept for the file's
+  // whole life. Views only swap the emissive texture and surface values: the shader features stay
+  // identical, so three.js never has to recompile shaders when you switch views (that was the main
+  // cause of freezes and audio stutter).
+  const materials = useMemo(
+    () => ({
+      body: new THREE.MeshStandardMaterial({ emissiveMap: getWhiteTexture(), toneMapped: false }),
+      accent: new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.2, toneMapped: false }),
+    }),
+    [],
+  );
+  useEffect(() => {
+    const { body } = materials;
+    body.emissiveMap = mode === 'city' ? getWindowTexture() : getWhiteTexture();
+    body.roughness = mode === 'city' ? 0.55 : 0.35;
+    body.metalness = mode === 'city' ? 0.5 : 0.3;
+  }, [materials, mode]);
   const matRef = useRef(materials);
   useEffect(() => {
     matRef.current = materials;
@@ -78,7 +87,11 @@ export function FileShape({ file, layout, mode, color, metric, emphasis, onSelec
     }
     pos.current.lerp(target, 1 - Math.exp(-delta * 2.5));
     outer.current.position.copy(pos.current);
-    livePositions.set(file.id, [pos.current.x, pos.current.y + recipe.anchorY, pos.current.z]);
+    let live = livePositions.get(file.id);
+    if (!live) livePositions.set(file.id, (live = [0, 0, 0]));
+    live[0] = pos.current.x;
+    live[1] = pos.current.y + recipe.anchorY;
+    live[2] = pos.current.z;
 
     // Grow in on first appearance / mode switch.
     if (lastMode.current !== mode) {
@@ -109,10 +122,7 @@ export function FileShape({ file, layout, mode, color, metric, emphasis, onSelec
     accent.color.copy(color).lerp(DARK, dim ? 0.8 : 0.2);
     accent.emissive.copy(color);
     accent.emissiveIntensity = dim ? 0.1 : glow * 1.2 + 0.25;
-    for (const m of [body, accent]) {
-      m.opacity = dim ? 0.35 : 1;
-      m.transparent = dim;
-    }
+    // (Dimming is done with colour only: toggling transparency would force a shader recompile.)
   });
 
   const handlers = {
@@ -136,10 +146,10 @@ export function FileShape({ file, layout, mode, color, metric, emphasis, onSelec
 
   return (
     <group ref={outer}>
-      <group ref={inner} rotation={layout.rot} {...handlers}>
+      <group ref={inner} rotation={layout.rot ?? ORIGIN} {...handlers}>
         {recipe.parts.map((p, i) => (
           <mesh
-            key={i}
+            key={`${mode}-${file.kind}-${i}`}
             ref={(m) => {
               if (!m || !p.spin) return;
               const set = spinners.current;
@@ -148,12 +158,12 @@ export function FileShape({ file, layout, mode, color, metric, emphasis, onSelec
             }}
             geometry={p.geometry}
             material={p.mat === 'body' ? materials.body : materials.accent}
-            position={p.position}
-            rotation={p.rotation}
-            scale={p.scale}
+            position={p.position ?? ORIGIN}
+            rotation={p.rotation ?? ORIGIN}
+            scale={p.scale ?? UNIT}
           />
         ))}
       </group>
     </group>
   );
-}
+});
