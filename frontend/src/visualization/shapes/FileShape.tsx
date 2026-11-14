@@ -5,6 +5,7 @@ import type { FileInfo } from '../../model/repoModel';
 import type { ViewMode } from '../../types';
 import type { FileLayout } from '../layouts';
 import { livePositions, pulses, readDecay } from '../pulseBus';
+import { complexityLevel } from '../../audio/composer';
 import { getWhiteTexture, getWindowTexture, shapeFor } from './geometry';
 
 interface Props {
@@ -42,7 +43,13 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
   const h = layout.height;
   const s = layout.size;
   const footprint = layout.footprint;
-  const recipe = useMemo(() => shapeFor(file.kind, mode, h, s, footprint), [file.kind, mode, h, s, footprint]);
+  // Building style follows complexity (bucketed so it doesn't rebuild on tiny changes) and concurrency.
+  const cxBucket = Math.round(complexityLevel(file.complexity) * 8) / 8;
+  const concurrent = file.concurrency > 0;
+  const recipe = useMemo(
+    () => shapeFor(file.kind, mode, h, s, footprint, { complexity: cxBucket, concurrent }),
+    [file.kind, mode, h, s, footprint, cxBucket, concurrent],
+  );
   useEffect(() => () => recipe.parts.forEach((p) => p.geometry.dispose()), [recipe]);
 
   // Two materials per file (a body and a solid accent glow), created once and kept for the file's

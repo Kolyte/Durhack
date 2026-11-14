@@ -9,11 +9,12 @@ Analysis events stream over WebSockets into a **Tone.js** engine that composes i
 ## What you get
 
 - **Three views of the same repo.**
-  - *Code City*: directories are neighbourhoods with streetlights, files are buildings with lit windows (height = size), and imports are glowing arcs.
+  - *Code City*: one connected city. Directories are districts packed along a street grid with lane markings and streetlights. Gaps become parks with trees, and a river runs through the middle with bridges where the streets cross it. Files are buildings with lit windows (height = size), and imports are glowing arcs.
   - *Galaxy*: directories are stars and files orbit them as planets (size = connectivity).
   - *Code Tree*: the repo is the trunk, directories branch off it, files grow as leaves, and root-level files sit around the base like roots.
 - **Shapes by file role.**
-  - In the City: source files are stepped skyscrapers, modules are landmark towers with a halo ring, config files are houses with pyramid roofs, tests are stadiums and docs are small kiosks.
+  - In the City, a source file's building depends on its complexity: a low-rise block (simple), an office with setbacks (moderate), a tower with an antenna (complex) or a tapered spire skyscraper (very complex). Files that use concurrency get a rooftop beacon.
+  - Also in the City: modules are landmark towers with a halo ring, tests are research labs with a rooftop dish, docs are libraries with a pediment, and config files are utility houses with pyramid roofs.
   - In the Galaxy: crystals, ringed planets, octahedra, tori and moons.
   - In the Tree: leaves, blossoms, crystals, flowers and buds.
 - **Metric overlay.** Colour by complexity, file size, dependencies or concurrency (teal → sky → lavender → pink).

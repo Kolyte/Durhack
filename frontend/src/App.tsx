@@ -32,11 +32,14 @@ export default function App() {
   const dna = useMemo(() => computeCodeDna(model, meta), [model, meta]);
   // Layout only reacts to modularity in coarse steps so clusters don't shuffle while edges stream in.
   const modularityStep = Math.round(dna.modularity * 4) / 4;
-  const layout = useMemo(
-    () => computeLayout(model, mode, { ...dna, modularity: modularityStep }),
+  // The city plan is always computed (cheap) so its scenery can stay mounted while other views show.
+  const cityLayout = useMemo(() => computeLayout(model, 'city', null), [model]);
+  const otherLayout = useMemo(
+    () => (mode === 'city' ? null : computeLayout(model, mode, { ...dna, modularity: modularityStep })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [model, mode, modularityStep],
   );
+  const layout = otherLayout ?? cityLayout;
 
   useEffect(() => audioEngine.setModel(model, dna), [model, dna]);
 
@@ -117,6 +120,7 @@ export default function App() {
           onSelect={setSelectedId}
           onHover={onHover}
           onTourInterrupt={onTourInterrupt}
+          cityPlan={cityLayout.city}
         />
       ) : (
         <div className="hero">
