@@ -857,6 +857,110 @@ input[type='range']::-moz-range-thumb {
   }
 }
 
+/* ───────── guided tour ───────── */
+
+.tour-guide {
+  position: absolute;
+  top: 92px;
+  right: 16px;
+  z-index: 6;
+  width: 360px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: caption-pulse 0.35s ease both;
+}
+
+.tour-guide__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tour-guide__paused {
+  color: var(--muted);
+}
+
+.tour-guide__title {
+  margin: 0;
+  font-size: 17px;
+  word-break: break-all;
+}
+
+.tour-guide__progress {
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+}
+
+.tour-guide__progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--lavender), var(--pink));
+  transition: width 0.6s linear;
+}
+
+.tour-guide__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tour-guide__dots {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tour-dot {
+  width: 16px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.tour-dot::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.35);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.tour-dot--special::after {
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+.tour-dot.is-on::after {
+  background: var(--pink);
+  box-shadow: 0 0 8px var(--pink);
+  transform: scale(1.35);
+}
+
+.tour-dot--special.is-on::after {
+  transform: rotate(45deg) scale(1.35);
+}
+
+.btn--nav {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+}
+
 /* ───────── phones (portrait and landscape) ─────────
  * Keep in sync with COMPACT_QUERY in src/state/useMediaQuery.ts. The 3D view gets the whole screen;
  * controls live in a bottom bar, and each panel opens as a sheet above it. */
@@ -995,7 +1099,7 @@ input[type='range']::-moz-range-thumb {
     font-size: 13px;
   }
 
-  /* Sheets and the file inspector sit just above the bottom bar. */
+  /* Sheets and the file inspector sit just above the bottom bar. On phones the tour has no card. */
   .sheet,
   .inspector {
     position: absolute;

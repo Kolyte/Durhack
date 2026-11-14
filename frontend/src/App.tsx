@@ -7,6 +7,7 @@ import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
 import { RepoInput } from './components/RepoInput';
+import { TourGuide } from './components/TourGuide';
 import { ViewControls } from './components/ViewControls';
 import { computeCodeDna } from './model/codeDna';
 import { buildRepoModel } from './model/repoModel';
@@ -234,6 +235,7 @@ export default function App() {
 
       {hasRepo && !compact && (
         <>
+          {!selected && <TourGuide tour={tour} onTour={onTour} />}
           <div className="bottom">
             <ViewControls
               mode={mode}

@@ -39,8 +39,10 @@ export interface EngineState {
   ready: boolean;
   playing: boolean;
   mode: 'idle' | 'analysing' | 'composition';
-  sections: { title: string; kind: Section['kind']; groupKey: string | null; fileId: string | null }[];
+  sections: { title: string; kind: Section['kind']; groupKey: string | null; fileId: string | null; bars: number }[];
   sectionIndex: number;
+  /** Bars already played in the current section (drives the tour's progress bar). */
+  barInSection: number;
   chord: string;
   /** Layers currently audible given the arrangement build-up. */
   activeLayers: LayerId[];
@@ -72,6 +74,7 @@ export const engineStore = createStore<EngineState>({
   mode: 'idle',
   sections: [],
   sectionIndex: 0,
+  barInSection: 0,
   chord: '',
   activeLayers: [],
   variant: 0,
@@ -252,6 +255,7 @@ class AudioEngine {
         kind: s.kind,
         groupKey: s.groupKey,
         fileId: s.kind === 'hub' ? (s.walk[0] ?? null) : null,
+        bars: s.bars,
       })),
     });
     this.start();
@@ -265,7 +269,7 @@ class AudioEngine {
     this.motif = null;
     this.acid = null;
     playhead.sectionIndex = 0;
-    engineStore.set({ sectionIndex: 0, phase: 'normal' });
+    engineStore.set({ sectionIndex: 0, barInSection: 0, phase: 'normal' });
   }
 
   /** Jumps the composition (and therefore the tour camera) to another section, starting at its next bar. */
@@ -280,7 +284,7 @@ class AudioEngine {
     // Skip the gradual build-up when jumping around: everything is already playing.
     this.arrangementBar = Math.max(this.arrangementBar, 12);
     playhead.sectionIndex = i;
-    engineStore.set({ sectionIndex: i });
+    engineStore.set({ sectionIndex: i, barInSection: 0 });
   }
 
   start() {
@@ -699,8 +703,11 @@ class AudioEngine {
         const rot = this.rotation;
         draw.schedule(() => {
           playhead.sectionIndex = idx;
-          engineStore.set({ sectionIndex: idx, rotation: rot });
+          engineStore.set({ sectionIndex: idx, barInSection: 0, rotation: rot });
         }, time + barDur);
+      } else if (section) {
+        const bis = this.barInSection;
+        draw.schedule(() => engineStore.set({ barInSection: bis }), time + barDur);
       }
     }
     if (active.join() !== s.activeLayers.join()) draw.schedule(() => engineStore.set({ activeLayers: active }), time);

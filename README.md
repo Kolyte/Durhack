@@ -28,7 +28,7 @@ Analysis events stream over WebSockets into a **Tone.js** engine that composes i
   - Drums alternate between patterns with fills every 8 bars.
   - Techno and house build to a breakdown → riser → drop every 32 bars.
 - **Picture and sound in sync.** A file pulses when its note plays. Directory hubs glow on chord changes and the ground pulses on the kick. When the melody follows an import, a light travels along that cable.
-- **Guided tour.** The camera moves from an overview through each directory to the most connected hub, following the composition, and layers join as it goes. The bottom bar shows the stop you're on; `←` `→` jump between stops.
+- **Guided tour.** The camera moves from an overview through each directory to the most connected hub, following the composition, and layers join as it goes. On desktop, a tour card shows which stop you're on and how far through the stop the music is. Use its ‹ › buttons or stop dots, or `←` `→`, to jump between stops. On phones the card is hidden, and the bottom bar has the tour controls.
   - Dragging, pinching or scrolling the view pauses the tour, but a plain tap doesn't.
   - Tapping a building to inspect it pauses the tour so the camera stays put.
   - Pausing the music pauses the tour, and resuming the tour restarts the music.
