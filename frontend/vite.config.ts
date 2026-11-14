@@ -8,6 +8,7 @@ export default defineConfig({
     // Dev: forward the WebSocket to the Spring Boot backend so the client can stay same-origin.
     proxy: {
       '/ws': { target: 'ws://localhost:8080', ws: true },
+      '/api': { target: 'http://localhost:8080' },
     },
   },
 })

@@ -103,7 +103,7 @@ describe('model + DNA', () => {
   });
 
   it('computes DNA scores in [0,1] and reports sampling', () => {
-    const dna = computeCodeDna(model, { repoName: 'a/b', bpm: 90, stars: 1, totalCodeFiles: 200, sampledCodeFiles: 5, treeTruncated: false });
+    const dna = computeCodeDna(model, { repoName: 'a/b', branch: 'main', bpm: 90, stars: 1, totalCodeFiles: 200, sampledCodeFiles: 5, treeTruncated: false });
     for (const k of ['complexity', 'connectivity', 'modularity', 'concurrency', 'size'] as const) {
       expect(dna[k]).toBeGreaterThanOrEqual(0);
       expect(dna[k]).toBeLessThanOrEqual(1);
