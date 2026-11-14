@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import * as THREE from 'three';
 import type { FileInfo } from '../../model/repoModel';
 import type { ViewMode } from '../../types';
 import type { FileLayout } from '../layouts';
 import { livePositions, pulses, readDecay } from '../pulseBus';
+import { getWhiteTexture, getWindowTexture, shapeFor } from './geometry';
 
 interface Props {
   file: FileInfo;
@@ -16,56 +17,81 @@ interface Props {
   /** "dim" when another file is selected and this one is unrelated. */
   emphasis: 'normal' | 'selected' | 'related' | 'dim';
   onSelect: (id: string) => void;
+  onHover: (id: string | null, x: number, y: number) => void;
 }
 
 const DARK = new THREE.Color('#0b1226');
+// Explicit defaults: React Three Fiber keeps a previous value when a prop disappears, so a part that
+// had a rotation/offset/scale in one view must be reset explicitly in the next.
+const ORIGIN: [number, number, number] = [0, 0, 0];
+const UNIT: [number, number, number] = [1, 1, 1];
 const tmpColor = new THREE.Color();
 const tmpVec = new THREE.Vector3();
 
 /** One file. Its geometry depends on its role (source, module, config, test, docs) and the view mode. */
-export function FileShape({ file, layout, mode, color, metric, emphasis, onSelect }: Props) {
+export const FileShape = memo(function FileShape({ file, layout, mode, color, metric, emphasis, onSelect, onHover }: Props) {
   const outer = useRef<THREE.Group>(null);
   const inner = useRef<THREE.Group>(null);
-  const ring = useRef<THREE.Mesh>(null);
+  const spinners = useRef(new Set<THREE.Mesh>());
   const [hovered, setHovered] = useState(false);
   const pos = useRef(new THREE.Vector3(...layout.pos));
   const appear = useRef(0);
   const lastMode = useRef(mode);
+  const phase = useMemo(() => (file.id.length * 13.7) % (Math.PI * 2), [file.id]);
 
   const h = layout.height;
   const s = layout.size;
-  const geometry = useMemo(() => shapeFor(file.kind, mode, h, s), [file.kind, mode, h, s]);
-  const softness = file.kind === 'docs' ? 0.5 : 1;
-  // One material per file, shared by all of its parts and animated imperatively in useFrame.
-  const material = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({
-        roughness: 0.35,
-        metalness: 0.35,
-        flatShading: file.kind === 'source' || file.kind === 'config',
-        toneMapped: false,
-      }),
-    [file.kind],
+  const footprint = layout.footprint;
+  const recipe = useMemo(() => shapeFor(file.kind, mode, h, s, footprint), [file.kind, mode, h, s, footprint]);
+  useEffect(() => () => recipe.parts.forEach((p) => p.geometry.dispose()), [recipe]);
+
+  // Two materials per file (a body and a solid accent glow), created once and kept for the file's
+  // whole life. Views only swap the emissive texture and surface values: the shader features stay
+  // identical, so three.js never has to recompile shaders when you switch views (that was the main
+  // cause of freezes and audio stutter).
+  const materials = useMemo(
+    () => ({
+      body: new THREE.MeshStandardMaterial({ emissiveMap: getWhiteTexture(), toneMapped: false }),
+      accent: new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.2, toneMapped: false }),
+    }),
+    [],
   );
-  const matRef = useRef(material);
   useEffect(() => {
-    matRef.current = material;
-    return () => material.dispose();
-  }, [material]);
+    const { body } = materials;
+    body.emissiveMap = mode === 'city' ? getWindowTexture() : getWhiteTexture();
+    body.roughness = mode === 'city' ? 0.55 : 0.35;
+    body.metalness = mode === 'city' ? 0.5 : 0.3;
+  }, [materials, mode]);
+  const matRef = useRef(materials);
+  useEffect(() => {
+    matRef.current = materials;
+    return () => {
+      materials.body.dispose();
+      materials.accent.dispose();
+    };
+  }, [materials]);
 
   useFrame((state, delta) => {
     if (!outer.current || !inner.current) return;
-    // Galaxy: slow Kepler-ish orbit around the directory's star.
+    const t = state.clock.elapsedTime;
     let target = tmpVec.set(...layout.pos);
     if (layout.orbit) {
+      // Galaxy: slow Kepler-ish orbit around the directory's star.
       const o = layout.orbit;
-      const a = o.angle + state.clock.elapsedTime * (0.05 / Math.sqrt(o.radius));
+      const a = o.angle + t * (0.05 / Math.sqrt(o.radius));
       target = tmpVec.set(o.center[0] + Math.cos(a) * o.radius, o.center[1] + o.y, o.center[2] + Math.sin(a) * o.radius);
+    } else if (mode === 'tree') {
+      // Tree: leaves sway gently in a breeze.
+      target.y += Math.sin(t * 0.9 + phase) * 0.05;
+      target.x += Math.sin(t * 0.6 + phase * 2) * 0.04;
     }
     pos.current.lerp(target, 1 - Math.exp(-delta * 2.5));
     outer.current.position.copy(pos.current);
-    const anchorY = mode === 'city' ? (file.kind === 'module' ? h * 0.8 + 0.4 : h) : 0;
-    livePositions.set(file.id, [pos.current.x, pos.current.y + anchorY, pos.current.z]);
+    let live = livePositions.get(file.id);
+    if (!live) livePositions.set(file.id, (live = [0, 0, 0]));
+    live[0] = pos.current.x;
+    live[1] = pos.current.y + recipe.anchorY;
+    live[2] = pos.current.z;
 
     // Grow in on first appearance / mode switch.
     if (lastMode.current !== mode) {
@@ -76,123 +102,68 @@ export function FileShape({ file, layout, mode, color, metric, emphasis, onSelec
     const grow = 1 - Math.pow(1 - appear.current, 3);
 
     const pulse = readDecay(pulses.node, file.id, delta, 3);
-    const scale = grow * (1 + pulse * 0.28 + (emphasis === 'selected' ? 0.12 : 0) + (hovered ? 0.06 : 0));
+    const scale = grow * (1 + pulse * (mode === 'city' ? 0.12 : 0.28) + (emphasis === 'selected' ? 0.1 : 0) + (hovered ? 0.05 : 0));
     inner.current.scale.lerp(tmpVec.set(scale, scale, scale), 1 - Math.exp(-delta * 12));
-    if (ring.current) ring.current.rotation.z += delta * (0.3 + file.concurrency * 0.08);
+    for (const sp of spinners.current) sp.rotation.z += delta * (0.3 + file.concurrency * 0.08);
 
     const dim = emphasis === 'dim';
+    const softness = file.kind === 'docs' ? 0.6 : 1;
     const baseGlow = (0.12 + metric * 0.55) * softness * (file.analyzed ? 1 : 0.35);
-    const glow =
-      (dim ? baseGlow * 0.15 : baseGlow) + pulse * 1.6 + (emphasis === 'selected' ? 0.9 : emphasis === 'related' ? 0.4 : 0) + (hovered ? 0.3 : 0);
-    // Body colour is a darker version of the metric colour; emissive glow carries the brightness.
-    tmpColor.copy(color).lerp(DARK, dim ? 0.8 : 0.45);
-    const m = matRef.current;
-    m.color.copy(tmpColor);
-    m.emissive.copy(color);
-    m.emissiveIntensity = glow;
-    m.opacity = dim ? 0.35 : 1;
-    m.transparent = dim;
+    const extra = (emphasis === 'selected' ? 0.9 : emphasis === 'related' ? 0.4 : 0) + (hovered ? 0.3 : 0);
+    const glow = (dim ? baseGlow * 0.15 : baseGlow) + pulse * 1.6 + extra;
+    const { body, accent } = matRef.current;
+
+    // City façades: dark walls, windows lit in the metric colour (they flash when the note plays).
+    // Elsewhere: a darker body with an emissive glow.
+    tmpColor.copy(color).lerp(DARK, dim ? 0.9 : mode === 'city' ? 0.8 : 0.45);
+    body.color.copy(tmpColor);
+    body.emissive.copy(color);
+    body.emissiveIntensity = mode === 'city' ? glow * 2.2 + 0.25 : glow;
+    accent.color.copy(color).lerp(DARK, dim ? 0.8 : 0.2);
+    accent.emissive.copy(color);
+    accent.emissiveIntensity = dim ? 0.1 : glow * 1.2 + 0.25;
+    // (Dimming is done with colour only: toggling transparency would force a shader recompile.)
   });
 
   const handlers = {
-    onClick: (e: { stopPropagation: () => void }) => {
+    onClick: (e: ThreeEvent<MouseEvent>) => {
       e.stopPropagation();
       onSelect(file.id);
     },
-    onPointerOver: (e: { stopPropagation: () => void }) => {
+    onPointerOver: (e: ThreeEvent<PointerEvent>) => {
       e.stopPropagation();
       setHovered(true);
       document.body.style.cursor = 'pointer';
+      onHover(file.id, e.nativeEvent.clientX, e.nativeEvent.clientY);
     },
+    onPointerMove: (e: ThreeEvent<PointerEvent>) => onHover(file.id, e.nativeEvent.clientX, e.nativeEvent.clientY),
     onPointerOut: () => {
       setHovered(false);
       document.body.style.cursor = '';
+      onHover(null, 0, 0);
     },
   };
 
   return (
     <group ref={outer}>
-      <group ref={inner} {...handlers}>
-        {geometry.map((g, i) =>
-          g.kind === 'ring' ? (
-            <mesh key={i} ref={ring} position={g.position} rotation={g.rotation} material={material}>
-              <torusGeometry args={g.args as [number, number, number, number]} />
-            </mesh>
-          ) : (
-            <mesh key={i} position={g.position} rotation={g.rotation} material={material}>
-              <Geometry part={g} />
-            </mesh>
-          ),
-        )}
+      <group ref={inner} rotation={layout.rot ?? ORIGIN} {...handlers}>
+        {recipe.parts.map((p, i) => (
+          <mesh
+            key={`${mode}-${file.kind}-${i}`}
+            ref={(m) => {
+              if (!m || !p.spin) return;
+              const set = spinners.current;
+              set.add(m);
+              return () => void set.delete(m);
+            }}
+            geometry={p.geometry}
+            material={p.mat === 'body' ? materials.body : materials.accent}
+            position={p.position ?? ORIGIN}
+            rotation={p.rotation ?? ORIGIN}
+            scale={p.scale ?? UNIT}
+          />
+        ))}
       </group>
     </group>
   );
-}
-
-type Part = {
-  kind: 'hex' | 'cylinder' | 'sphere' | 'cone' | 'dodeca' | 'ico' | 'octa' | 'torus' | 'ring';
-  args: number[];
-  position?: [number, number, number];
-  rotation?: [number, number, number];
-};
-
-function Geometry({ part }: { part: Part }) {
-  switch (part.kind) {
-    case 'hex':
-    case 'cylinder':
-      return <cylinderGeometry args={part.args as [number, number, number, number]} />;
-    case 'sphere':
-      return <sphereGeometry args={part.args as [number, number, number]} />;
-    case 'cone':
-      return <coneGeometry args={part.args as [number, number, number]} />;
-    case 'dodeca':
-      return <dodecahedronGeometry args={part.args as [number, number]} />;
-    case 'ico':
-      return <icosahedronGeometry args={part.args as [number, number]} />;
-    case 'octa':
-      return <octahedronGeometry args={part.args as [number, number]} />;
-    case 'torus':
-    case 'ring':
-      return <torusGeometry args={part.args as [number, number, number, number]} />;
-  }
-}
-
-/** Geometry recipe per file role and view. */
-function shapeFor(kind: FileInfo['kind'], mode: ViewMode, h: number, s: number): Part[] {
-  if (mode === 'city') {
-    switch (kind) {
-      case 'module':
-        return [
-          { kind: 'cylinder', args: [0.14, 0.22, h * 0.8, 8], position: [0, h * 0.4, 0] },
-          { kind: 'sphere', args: [0.4, 24, 16], position: [0, h * 0.8 + 0.4, 0] },
-          { kind: 'ring', args: [0.68, 0.035, 8, 48], position: [0, h * 0.8 + 0.4, 0], rotation: [Math.PI / 2.4, 0, 0] },
-        ];
-      case 'config':
-        return [{ kind: 'cone', args: [0.5, h, 4], position: [0, h / 2, 0], rotation: [0, Math.PI / 4, 0] }];
-      case 'test':
-        return [
-          { kind: 'cylinder', args: [0.52, 0.52, 0.1, 32], position: [0, 0.05, 0] },
-          { kind: 'cylinder', args: [0.34, 0.34, 0.1, 32], position: [0, 0.2, 0] },
-        ];
-      case 'docs':
-        return [{ kind: 'dodeca', args: [0.26, 0], position: [0, 0.35, 0] }];
-      default:
-        return [{ kind: 'hex', args: [0.36, 0.42, h, 6], position: [0, h / 2, 0] }];
-    }
-  }
-  switch (kind) {
-    case 'module':
-      return [
-        { kind: 'sphere', args: [s * 1.15, 24, 16] },
-        { kind: 'ring', args: [s * 2, s * 0.08, 8, 48], rotation: [Math.PI / 2.3, 0, 0] },
-      ];
-    case 'config':
-      return [{ kind: 'octa', args: [s, 0] }];
-    case 'test':
-      return [{ kind: 'torus', args: [s * 1.05, s * 0.28, 10, 32], rotation: [Math.PI / 2, 0, 0] }];
-    case 'docs':
-      return [{ kind: 'sphere', args: [s * 0.6, 16, 12] }];
-    default:
-      return [{ kind: 'ico', args: [s, 0] }];
-  }
-}
+});

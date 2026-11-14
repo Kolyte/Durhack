@@ -26,7 +26,8 @@ export function ViewControls({
         {(
           [
             ['city', 'Code City'],
-            ['galaxy', 'Dependency Galaxy'],
+            ['galaxy', 'Galaxy'],
+            ['tree', 'Code Tree'],
           ] as const
         ).map(([id, label]) => (
           <button key={id} role="radio" aria-checked={mode === id} className={`segmented__item${mode === id ? ' is-on' : ''}`} onClick={() => onMode(id)}>
