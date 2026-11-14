@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { DNA_LABELS, type CodeDna } from '../model/codeDna';
+import { DNA_LABELS, sonyxScore, type CodeDna } from '../model/codeDna';
 import type { RepoMeta } from '../types';
 
 type Key = keyof typeof DNA_LABELS;
@@ -46,12 +46,17 @@ function Radar({ dna }: { dna: CodeDna }) {
 
 export function MetricsPanel({ dna, meta, embedded = false }: { dna: CodeDna; meta: RepoMeta | null; embedded?: boolean }) {
   const [open, setOpen] = useState(true);
+  const score = sonyxScore(dna);
   return (
     <aside className={`dna${embedded ? ' dna--embedded' : ' panel'}${open ? '' : ' is-collapsed'}`} aria-label="Code DNA">
       <button className="panel__head panel__head--button" onClick={() => setOpen(!open)} aria-expanded={open}>
         <div>
           <div className="eyebrow">Code DNA</div>
           <div className="dna__repo">{meta?.repoName ?? '—'}</div>
+        </div>
+        <div className="dna__score" title="Sonyx score: the average of the five Code DNA axes (same as the leaderboard)">
+          <span className="dna__score-value">{score.toFixed(1)}</span>
+          <span className="dna__score-label">score</span>
         </div>
         <span aria-hidden>{open ? '–' : '+'}</span>
       </button>
