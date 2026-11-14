@@ -1221,3 +1221,10 @@ input[type='range']::-moz-range-thumb {
   pointer-events: none;
   white-space: nowrap;
 }
+
+/* Phones: the URL field needs the room, so the Leaderboard button shrinks to its trophy. */
+@media (max-width: 520px) {
+  .nav-button__label {
+    display: none;
+  }
+}
