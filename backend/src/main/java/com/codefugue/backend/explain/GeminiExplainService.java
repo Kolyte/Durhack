@@ -41,6 +41,7 @@ public class GeminiExplainService {
         record Result(int status, String body) {}
     }
 
+    private static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger(GeminiExplainService.class);
     private static final int CACHE_SIZE = 500;
 
     private final String apiKey;
@@ -72,6 +73,10 @@ public class GeminiExplainService {
         this.baseUrl = baseUrl.replaceAll("/+$", "");
         this.perMinute = perMinute;
         this.http = http;
+        // Logged at startup so "why is the Gemini button missing?" is answered in the backend output.
+        // (Only whether a key is present, never the key itself.)
+        if (enabled()) LOG.info("Gemini explanations enabled (model {})", this.model);
+        else LOG.info("Gemini explanations disabled: set GEMINI_API_KEY (environment variable or backend/.env)");
     }
 
     public boolean enabled() {
