@@ -43,15 +43,18 @@ public class RankingController {
     public ResponseEntity<Map<String, Object>> submit(@RequestBody RankingSubmission body) {
         RankingSubmission s = body.sanitized();
         if (s.repoName() == null) {
+            log.info("Ranking submission rejected: malformed repo name");
             return ResponseEntity.badRequest().body(Map.of("error", "repoName must look like owner/repo"));
         }
         var facts = recent.lookup(s.repoName());
         if (facts.isEmpty()) {
+            log.info("Ranking submission rejected: {} was not analysed here recently", s.repoName());
             return ResponseEntity.status(HttpStatus.CONFLICT)
                     .body(Map.of("error", "Analyse this repository on the main page first"));
         }
         repository.insert(s, facts.get());
         events.publishUpdate(s.repoName());
+        log.info("Ranking updated: {} scored {}", s.repoName(), s.score());
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("repoName", s.repoName(), "score", s.score()));
     }
 

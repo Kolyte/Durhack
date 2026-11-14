@@ -71,9 +71,6 @@ export function RepoInput({
             {p.label}
           </button>
         ))}
-        <a className="chip nav-chip" href="/ranking.html">
-          🏆 Leaderboard
-        </a>
       </div>
       <div className={`status${phase === 'error' ? ' status--error' : ''}`} role="status">
         {status}
@@ -83,6 +80,9 @@ export function RepoInput({
           </div>
         )}
       </div>
+      <a className="btn btn--accent nav-button" href="/ranking.html">
+        🏆 Leaderboard
+      </a>
     </header>
   );
 }

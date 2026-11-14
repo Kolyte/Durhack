@@ -2,5 +2,11 @@
 # Use DOMAIN=http://localhost for a local plain-HTTP test.
 {$DOMAIN} {
 	encode zstd gzip
+	# Vite's /assets/* files have content hashes in their names, so they can be cached forever.
+	@assets path /assets/*
+	header @assets {
+		Cache-Control "public, max-age=31536000, immutable"
+		defer
+	}
 	reverse_proxy app:8080
 }
