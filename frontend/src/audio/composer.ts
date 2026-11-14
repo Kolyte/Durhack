@@ -113,13 +113,24 @@ export function buildSections(model: RepoModel): Section[] {
   return sections;
 }
 
-export function chordForBar(preset: MusicPreset, bar: number): Chord {
-  const idx = Math.floor(bar / preset.barsPerChord) % preset.progression.length;
-  return CHORDS[preset.progression[idx]];
+/** Which progression / voice line-up this repository gets (stable per repo name). */
+export function progressionFor(preset: MusicPreset, variant: number): string[] {
+  return preset.progressions[variant % preset.progressions.length];
 }
 
-export function voiceForGroup(preset: MusicPreset, groupIndex: number): VoiceId {
-  return preset.leadVoices[Math.max(0, groupIndex) % preset.leadVoices.length];
+export function chordForBar(preset: MusicPreset, bar: number, variant = 0): Chord {
+  const prog = progressionFor(preset, variant);
+  const idx = Math.floor(bar / preset.barsPerChord) % prog.length;
+  return CHORDS[prog[idx]];
+}
+
+/**
+ * Lead instrument for a directory. `rotation` increases each time the tour loops, so the same
+ * directory is played by a different instrument on the next pass.
+ */
+export function voiceForGroup(preset: MusicPreset, groupIndex: number, variant = 0, rotation = 0): VoiceId {
+  const set = preset.leadVoices[variant % preset.leadVoices.length];
+  return set[(Math.max(0, groupIndex) + rotation) % set.length];
 }
 
 /** Bigger files hold their notes longer. */
@@ -205,6 +216,79 @@ export function generateBar(ctx: BarContext, onsets: number[]): { notes: MelodyN
   return { notes, lastMidi: prev };
 }
 
+/**
+ * Re-voices a stored motif over the current chord: strong beats move to the nearest chord tone,
+ * and every 4th bar the last note steps up for a little variation. Files are re-assigned so the
+ * visuals still walk through the section.
+ */
+export function adaptMotif(
+  motif: MelodyNote[],
+  chord: Chord,
+  rich: boolean,
+  files: FileInfo[],
+  prevFile: FileInfo | undefined,
+  vary: boolean,
+): MelodyNote[] {
+  const chordTones = LEAD_SCALE.filter((m) => chordPcs(chord, rich).includes(pc(m)));
+  let prev = prevFile;
+  return motif.map((n, i) => {
+    let midi = n.step % 8 === 0 || n.dur >= 4 ? nearestIn(chordTones, n.midi) : n.midi;
+    if (vary && i === motif.length - 1) {
+      const idx = LEAD_SCALE.indexOf(nearestIn(LEAD_SCALE, midi));
+      midi = LEAD_SCALE[Math.min(LEAD_SCALE.length - 1, idx + 1)];
+    }
+    const file = files[i % Math.max(1, files.length)] ?? undefined;
+    const out = { ...n, midi, fileId: file?.id ?? n.fileId, fromFileId: file && connected(prev, file) ? prev!.id : null };
+    prev = file ?? prev;
+    return out;
+  });
+}
+
+export interface AcidStep {
+  step: number;
+  /** Semitones above the chord root (always resolved into D Dorian). */
+  offset: number;
+  accent: boolean;
+  slide: boolean;
+}
+
+const ACID_OFFSETS = [0, 0, 0, 0, 12, 12, 7, 10, 3, 5];
+
+/**
+ * A 16-step 303-style acid pattern for a section. Busier when the section's files use more
+ * concurrency; imports between consecutive files become slides.
+ */
+export function acidPattern(files: FileInfo[], energy: number, rng: () => number): AcidStep[] {
+  const conc = files.reduce((s, f) => s + f.concurrency, 0) / Math.max(1, files.length);
+  const density = clamp(0.4 + Math.min(1, conc / 4) * 0.25 + energy * 0.2, 0.35, 0.85);
+  const out: AcidStep[] = [];
+  for (let step = 0; step < 16; step++) {
+    if (step !== 0 && rng() > density) continue;
+    const f = files[step % Math.max(1, files.length)];
+    const g = files[(step + 1) % Math.max(1, files.length)];
+    out.push({
+      step,
+      offset: step === 0 ? 0 : ACID_OFFSETS[Math.floor(rng() * ACID_OFFSETS.length)],
+      accent: step % 4 === 0 ? rng() < 0.6 : rng() < 0.2,
+      slide: connected(f, g) && rng() < 0.7,
+    });
+  }
+  return out;
+}
+
+/** Resolves an acid step over a chord into a MIDI note in the bass range (D2–D3), in scale. */
+export function acidNote(chord: Chord, offset: number): number {
+  let root = 36 + (chord.root % 12);
+  if (root < 38) root += 12;
+  const target = root + offset;
+  for (let d = 0; d < 3; d++) {
+    if (D_DORIAN_SET.has(pc(target - d))) return target - d;
+    if (D_DORIAN_SET.has(pc(target + d))) return target + d;
+  }
+  return root;
+}
+const D_DORIAN_SET = new Set([2, 4, 5, 7, 9, 11, 0]);
+
 /** 0 = none, 1 = quarter notes, 2 = eighths, 3 = sixteenths. */
 export function arpLevel(preset: MusicPreset, files: FileInfo[], dna: CodeDna | null, energy: number): number {
   if (preset.arpMax === 0) return 0;
@@ -235,12 +319,12 @@ export function defaultEnergy(stars: number): number {
 }
 
 /** Human-readable explanation used by the file inspector. */
-export function describeFile(file: FileInfo, preset: MusicPreset, groupIndex: number): string[] {
+export function describeFile(file: FileInfo, preset: MusicPreset, groupIndex: number, variant = 0): string[] {
   const dur = durationSteps(file.loc);
   const durName = dur <= 2 ? 'short eighth notes' : dur === 3 ? 'dotted eighths' : dur === 4 ? 'quarter notes' : 'long, held notes';
   const cx = complexityLevel(file.complexity);
   const lines = [
-    `Played by the ${voiceForGroup(preset, groupIndex)} voice, the instrument of its directory.`,
+    `Played by the ${voiceForGroup(preset, groupIndex, variant)} voice, the instrument of its directory (it changes on each loop of the tour).`,
     `${file.loc} lines → ${durName}.`,
     cx < 0.3
       ? `Complexity ${file.complexity} → calm, stepwise melody.`
@@ -251,7 +335,13 @@ export function describeFile(file: FileInfo, preset: MusicPreset, groupIndex: nu
   if (file.deps.length + file.dependents.length > 0) {
     lines.push(`${file.deps.length + file.dependents.length} linked files → the melody glides by step to them and a light travels along the cable.`);
   }
-  if (file.concurrency > 0) lines.push(`${file.concurrency} concurrency markers → adds arpeggio activity while it plays.`);
+  if (file.concurrency > 0) {
+    lines.push(
+      preset.bass?.style === 'acid'
+        ? `${file.concurrency} concurrency markers → a busier acid bassline and more arpeggio activity.`
+        : `${file.concurrency} concurrency markers → adds arpeggio activity while it plays.`,
+    );
+  }
   if (file.role === 'config' || file.role === 'docs') lines.push('Not code, so it contributes size and placement but no complexity.');
   return lines;
 }

@@ -17,11 +17,19 @@ Analysis events stream over WebSockets into a **Tone.js** engine that composes i
   - In the Galaxy: crystals, ringed planets, octahedra, tori and moons.
   - In the Tree: leaves, blossoms, crystals, flowers and buds.
 - **Metric overlay.** Colour by complexity, file size, dependencies or concurrency (teal → sky → lavender → pink).
-- **Music that fits together.** Chord progressions and chord-aware melodies stay in D Dorian, scheduled on `Tone.Transport`. There are four presets: **Ambient** (default), **Lo-fi**, **Cinematic** and **Electronic**.
+- **Music that fits together.** Chord progressions and chord-aware melodies stay in D Dorian, scheduled on `Tone.Transport`. There are seven presets: **Ambient** (default), **Lo-fi**, **Cinematic**, **Electronic**, **Techno**, **Deep House** and **Synthwave**.
+- **Built-in instruments, all synthesised (no samples to download or license).**
+  - 11 lead voices: glass, pluck, electric keys, mallet, bright, supersaw, kalimba, organ, flute, chip and bell.
+  - 909-style kick with sub rumble, claps, open/closed hats, a TB-303-style acid bassline, chord stabs, sidechain pumping, and a riser and crash for drops.
+- **Never quite the same.**
+  - Each repo gets its own chord progression and instrument line-up, chosen from its name.
+  - Every loop of the tour moves the instruments to different directories.
+  - Drums alternate between patterns with fills every 8 bars.
+  - Techno and house build to a breakdown → riser → drop every 32 bars.
 - **Picture and sound in sync.** A file pulses when its note plays. Directory hubs glow on chord changes and the ground pulses on the kick. When the melody follows an import, a light travels along that cable.
-- **Guided tour.** The camera moves from an overview through each directory to the most connected hub, following the composition, and layers join as it goes. A caption explains what each part of the project is for, based on folder-name conventions and metrics (`model/explain.ts`; it is built so an AI explainer such as Gemini can replace it later). Use ‹ › to skip sections; dragging the view pauses the tour.
+- **Guided tour.** The camera moves from an overview through each directory to the most connected hub, following the composition, and layers join as it goes. Use `←` `→` to skip sections; dragging the view pauses the tour.
 - **Shortcuts.** `Space` play/pause · `1` `2` `3` switch views · `T` start or pause the tour · `←` `→` move between tour sections · `Esc` deselect. Hovering a shape shows a tooltip. Links like `?repo=owner/name` pre-fill the repo.
-- **File inspector.** Shows stats and connections, explains how the file shapes the music, and can play the file's musical signature.
+- **File inspector.** Click a building to see **what it's for**: an explanation based on naming conventions, its folder, how connected it is, its complexity and its concurrency (`model/explain.ts`; it sits behind a `FileExplainer` interface so an AI explainer such as Gemini can replace it later). It also shows stats and connections, explains how the file shapes the music, and can play the file's musical signature.
 - **Code DNA.** Complexity, connectivity, modularity, concurrency and size, shown as a radar chart, with notes on what was sampled.
 - **Playback dock.** Play/pause, mute, volume, tempo, reverb, energy, instrument toggles and preset selection, all applied live.
 
@@ -108,6 +116,6 @@ frontend/src/
 Tests: `cd backend && ./mvnw test` · `cd frontend && npm test` (composer/model) · `npm run lint` · `npm run build`
 
 ## Ideas / next steps
-- Gemini explanations for the tour, called through the backend so the API key stays private
+- Gemini explanations in the file inspector, called through the backend so the API key stays private
 - Record/export the performance (Tone.Recorder → WAV)
 - Smarter import resolution (relative path resolution, tsconfig paths, Java packages)

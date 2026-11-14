@@ -3,7 +3,6 @@ import { audioEngine, engineStore } from './audio/AudioEngine';
 import { FileInspector } from './components/FileInspector';
 import { HoverTooltip } from './components/HoverTooltip';
 import { hoverStore } from './state/hover';
-import { TourCaption } from './components/TourCaption';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
 import { RepoInput } from './components/RepoInput';
@@ -138,9 +137,6 @@ export default function App() {
       {hasRepo && (
         <>
           <MetricsPanel dna={dna} meta={meta} />
-          {tour !== 'off' && engine.mode === 'composition' && (
-            <TourCaption model={model} meta={meta} dna={dna} onExit={() => setTour('off')} />
-          )}
           <HoverTooltip model={model} />
           {selected && (
             <FileInspector file={selected} model={model} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />

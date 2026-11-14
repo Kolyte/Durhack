@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildRepoModel } from '../../model/repoModel';
 import { computeCodeDna } from '../../model/codeDna';
 import type { FileNode } from '../../types';
-import { buildSections, chordForBar, generateBar, importWalk, pickRhythm, arpNotes } from '../composer';
+import { acidNote, acidPattern, adaptMotif, buildSections, chordForBar, generateBar, importWalk, pickRhythm, arpNotes, voiceForGroup } from '../composer';
 import { PRESETS } from '../presets';
 import { CHORDS, inScale, mulberry32, voiceChord } from '../theory';
 
@@ -55,7 +55,7 @@ describe('composer', () => {
 
   it('voices every chord in scale with smooth voice leading', () => {
     let prev: number[] | null = null;
-    for (const name of PRESETS.cinematic.progression) {
+    for (const name of PRESETS.cinematic.progressions[0]) {
       const v = voiceChord(CHORDS[name], true, prev);
       v.forEach((m) => expect(inScale(m)).toBe(true));
       if (prev) {
@@ -113,7 +113,7 @@ describe('model + DNA', () => {
 });
 
 import { computeLayout } from '../../visualization/layouts';
-import { explainSection, purposeOf } from '../../model/explain';
+import { explainFile, purposeOf } from '../../model/explain';
 
 describe('tree layout + explanations', () => {
   it('puts every file on a branch tip or the roots, with the trunk first', () => {
@@ -125,14 +125,62 @@ describe('tree layout + explanations', () => {
     expect(layout.branches.some((b) => b.depth === 2)).toBe(true);
   });
 
-  it('explains common folders and the overview', () => {
+  it('explains common folders and individual files', () => {
     expect(purposeOf('lib/router', [])).toMatch(/Routing/);
     expect(purposeOf('test', [])).toMatch(/tests/);
     expect(purposeOf('(root)', [])).toMatch(/root/);
-    const dna = computeCodeDna(model, null);
-    const overview = explainSection({ kind: 'overview', title: 'Overview', groupKey: null, fileId: null }, model, null, dna);
-    expect(overview.body).toMatch(/areas/);
-    const hub = explainSection({ kind: 'hub', title: 'Hub', groupKey: 'lib', fileId: 'lib/app.js' }, model, null, dna);
-    expect(hub.body).toMatch(/imports 2 files and is imported by 1/);
+    const f = (id: string) => explainFile(model.files.get(id)!, model);
+    expect(f('lib/router/index.js').purpose).toMatch(/entry point/);
+    expect(f('package.json').purpose).toMatch(/npm manifest/);
+    expect(f('README.md').purpose).toMatch(/front page/);
+    expect(f('test/app.test.js').purpose).toMatch(/Automated tests for app\.js/);
+    expect(f('lib/router/index.js').details.join(' ')).toMatch(/routing/i);
+  });
+});
+
+describe('presets and techno features', () => {
+  it('every preset progression uses known, in-scale chords', () => {
+    for (const p of Object.values(PRESETS)) {
+      for (const prog of p.progressions) for (const name of prog) expect(CHORDS[name], `${p.id}: ${name}`).toBeDefined();
+      expect(p.leadVoices.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('different repos (variants) and tour loops (rotation) get different instruments', () => {
+    const p = PRESETS.techno;
+    const voices = new Set([0, 1, 2].map((v) => voiceForGroup(p, 0, v, 0)));
+    expect(voices.size).toBeGreaterThan(1);
+    expect(voiceForGroup(p, 0, 0, 0)).not.toBe(voiceForGroup(p, 0, 0, 1));
+  });
+
+  it('acid lines stay in D Dorian and in the bass range', () => {
+    const files = [...model.files.values()];
+    const rng = mulberry32(3);
+    for (let k = 0; k < 20; k++) {
+      const pattern = acidPattern(files, 0.7, rng);
+      expect(pattern[0].step).toBe(0);
+      for (const name of PRESETS.techno.progressions.flat()) {
+        for (const a of pattern) {
+          const m = acidNote(CHORDS[name], a.offset);
+          expect(inScale(m)).toBe(true);
+          expect(m).toBeGreaterThanOrEqual(36);
+          expect(m).toBeLessThanOrEqual(62);
+        }
+      }
+    }
+  });
+
+  it('re-voiced motifs stay in scale and keep their rhythm', () => {
+    const files = [...model.files.values()];
+    const { notes } = generateBar(
+      { preset: PRESETS.house, chord: CHORDS.Dm9, rich: true, files, prevMidi: 69, prevFile: undefined,
+        phrasePos: 0.25, phraseEnd: true, energy: 0.6, rng: mulberry32(9) },
+      [0, 3, 10, 12],
+    );
+    for (const name of PRESETS.house.progressions.flat()) {
+      const out = adaptMotif(notes, CHORDS[name], true, files, undefined, true);
+      expect(out.map((n) => n.step)).toEqual(notes.map((n) => n.step));
+      out.forEach((n) => expect(inScale(n.midi)).toBe(true));
+    }
   });
 });
