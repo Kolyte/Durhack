@@ -36,5 +36,5 @@ export type ComposeEvent =
   | { type: 'COMPOSITION_READY'; totalAnalyzed: number }
   | { type: 'ERROR'; message: string };
 
-export type ViewMode = 'city' | 'galaxy';
+export type ViewMode = 'city' | 'galaxy' | 'tree';
 export type MetricOverlay = 'complexity' | 'size' | 'dependencies' | 'concurrency';

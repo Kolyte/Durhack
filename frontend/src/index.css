@@ -248,6 +248,38 @@ button {
   border: 1px solid var(--border);
 }
 
+.segmented--wrap {
+  flex-wrap: wrap;
+}
+
+.phase {
+  margin-left: 8px;
+  font: 600 10px var(--sans);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  vertical-align: middle;
+  animation: caption-pulse 0.5s ease both;
+}
+
+.phase--breakdown {
+  color: var(--cyan);
+  background: rgba(56, 189, 248, 0.15);
+}
+
+.phase--drop {
+  color: var(--pink);
+  background: rgba(244, 114, 182, 0.18);
+}
+
+@keyframes caption-pulse {
+  from {
+    transform: scale(1.3);
+    opacity: 0;
+  }
+}
+
 .segmented__item {
   border: 0;
   background: transparent;
@@ -579,6 +611,12 @@ input[type='range']::-moz-range-thumb {
   word-break: break-all;
 }
 
+.about {
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
 .explain {
   margin: 0;
   padding-left: 16px;
@@ -714,6 +752,31 @@ input[type='range']::-moz-range-thumb {
   background: linear-gradient(90deg, var(--teal), var(--cyan), var(--lavender), var(--pink));
 }
 
+/* ───────── hover tooltip ───────── */
+
+.tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: rgba(6, 9, 20, 0.92);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tooltip strong {
+  color: var(--text);
+  font: 600 12px var(--mono);
+}
+
 /* ───────── 3D labels ───────── */
 
 .hub-labels {
@@ -761,6 +824,7 @@ input[type='range']::-moz-range-thumb {
   .dna {
     display: none;
   }
+
 
   .inspector {
     left: 16px;

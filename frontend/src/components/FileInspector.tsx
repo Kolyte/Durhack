@@ -1,6 +1,7 @@
 import { audioEngine, engineStore } from '../audio/AudioEngine';
 import { describeFile } from '../audio/composer';
 import { PRESETS } from '../audio/presets';
+import { explainFile } from '../model/explain';
 import type { FileInfo, RepoModel } from '../model/repoModel';
 import { useStore } from '../state/store';
 
@@ -23,7 +24,8 @@ export function FileInspector({
   onSelect: (id: string) => void;
   onClose: () => void;
 }) {
-  const { preset } = useStore(engineStore);
+  const { preset, variant, rotation } = useStore(engineStore);
+  const about = explainFile(file, model);
   const group = model.groupIndex.get(file.group);
   const name = file.path.split('/').pop();
   const links = [
@@ -67,13 +69,23 @@ export function FileInspector({
         </div>
       </dl>
 
+      <h3 className="panel__title">What it's for</h3>
+      <p className="about">{about.purpose}</p>
+      {about.details.length > 0 && (
+        <ul className="explain">
+          {about.details.map((d) => (
+            <li key={d}>{d}</li>
+          ))}
+        </ul>
+      )}
+
       <button className="btn btn--primary btn--block" onClick={() => audioEngine.playSignature(file)}>
         ♪ Play musical signature
       </button>
 
       <h3 className="panel__title">How it shapes the music</h3>
       <ul className="explain">
-        {describeFile(file, PRESETS[preset], group?.index ?? 0).map((l) => (
+        {describeFile(file, PRESETS[preset], (group?.index ?? 0) + rotation, variant).map((l) => (
           <li key={l}>{l}</li>
         ))}
       </ul>
