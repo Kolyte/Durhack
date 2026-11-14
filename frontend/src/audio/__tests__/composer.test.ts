@@ -216,3 +216,14 @@ describe('code city plan', () => {
     }
   });
 });
+
+import { sonyxScore } from '../../model/codeDna';
+
+describe('sonyx score', () => {
+  it('is the mean of the five axes × 100, rounded like the backend leaderboard', () => {
+    // Backend: Math.round((c + cn + m + cc + s) / 5 * 1000) / 10.0
+    expect(sonyxScore({ complexity: 0.61, connectivity: 0.27, modularity: 0.76, concurrency: 0.18, size: 0.62 })).toBe(48.8);
+    expect(sonyxScore({ complexity: 0, connectivity: 0, modularity: 0, concurrency: 0, size: 0 })).toBe(0);
+    expect(sonyxScore({ complexity: 1, connectivity: 1, modularity: 1, concurrency: 1, size: 1 })).toBe(100);
+  });
+});

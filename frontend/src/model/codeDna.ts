@@ -71,3 +71,12 @@ export function computeCodeDna(model: RepoModel, meta: RepoMeta | null): CodeDna
 
   return { complexity, connectivity, modularity, concurrency, size, caveats, analyzedCodeFiles: n };
 }
+
+/**
+ * Overall Sonyx score, 0–100: the mean of the five Code DNA axes, rounded to one decimal.
+ * Must match RankingSubmission.score() on the backend, so the panel and the leaderboard agree.
+ */
+export function sonyxScore(dna: Pick<CodeDna, 'complexity' | 'connectivity' | 'modularity' | 'concurrency' | 'size'>): number {
+  const mean = (dna.complexity + dna.connectivity + dna.modularity + dna.concurrency + dna.size) / 5;
+  return Math.round(mean * 1000) / 10;
+}
