@@ -184,14 +184,20 @@ export default function App() {
         repoName={meta?.repoName}
       />
 
-      {hasRepo && !compact && (
+      {/* One FileInspector for both layouts (on phones the CSS turns it into a bottom sheet). */}
+      {hasRepo && (
         <>
-          <MetricsPanel dna={dna} meta={meta} />
+          {!compact && <MetricsPanel dna={dna} meta={meta} />}
           <HoverTooltip model={model} />
-          {!selected && <TourGuide tour={tour} onTour={onTour} />}
           {selected && (
             <FileInspector file={selected} model={model} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />
           )}
+        </>
+      )}
+
+      {hasRepo && !compact && (
+        <>
+          {!selected && <TourGuide tour={tour} onTour={onTour} />}
           <div className="bottom">
             <ViewControls
               mode={mode}
@@ -209,9 +215,7 @@ export default function App() {
 
       {hasRepo && compact && (
         <>
-          {selected ? (
-            <FileInspector file={selected} model={model} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />
-          ) : sheet ? (
+          {selected ? null : sheet ? (
             <div className="sheet panel" role="dialog" aria-label={`${sheet} controls`}>
               <button className="btn btn--icon sheet__close" onClick={() => setSheet(null)} aria-label="Close">
                 ✕
