@@ -188,7 +188,7 @@ export default function App() {
         <>
           <MetricsPanel dna={dna} meta={meta} />
           <HoverTooltip model={model} />
-          {!selected && <TourGuide tour={tour} model={model} onTour={onTour} />}
+          {!selected && <TourGuide tour={tour} onTour={onTour} />}
           {selected && (
             <FileInspector file={selected} model={model} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />
           )}
@@ -232,7 +232,7 @@ export default function App() {
               {sheet === 'dna' && <MetricsPanel embedded dna={dna} meta={meta} />}
             </div>
           ) : (
-            <TourGuide tour={tour} model={model} onTour={onTour} />
+            <TourGuide tour={tour} onTour={onTour} />
           )}
           <nav className="mobile-bar panel" aria-label="Controls">
             <div className="mobile-bar__row">
