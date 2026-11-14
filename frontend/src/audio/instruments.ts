@@ -46,7 +46,7 @@ function buildVoice(id: VoiceId, bus: Tone.ToneAudioNode, own: Own): LeadVoice {
       extra.connect(filter);
     } else synth.connect(filter);
     synth.volume.value = volume;
-    synth.maxPolyphony = 14;
+    synth.maxPolyphony = 10;
     return { synth: own(synth), filter, baseCutoff: cutoff };
   };
   switch (id) {
@@ -91,7 +91,7 @@ function buildVoice(id: VoiceId, bus: Tone.ToneAudioNode, own: Own): LeadVoice {
     case 'supersaw': // trance/synthwave lead: 5 detuned saws, filtered
       return make(
         new Tone.PolySynth(Tone.Synth, {
-          oscillator: { type: 'fatsawtooth', count: 5, spread: 28 } as Tone.OmniOscillatorOptions,
+          oscillator: { type: 'fatsawtooth', count: 3, spread: 24 } as Tone.OmniOscillatorOptions,
           envelope: { attack: 0.01, decay: 0.3, sustain: 0.45, release: 0.6 },
         }),
         2400,
@@ -104,8 +104,8 @@ function buildVoice(id: VoiceId, bus: Tone.ToneAudioNode, own: Own): LeadVoice {
           modulationIndex: 2,
           oscillator: { type: 'sine' },
           modulation: { type: 'sine' },
-          envelope: { attack: 0.001, decay: 0.55, sustain: 0, release: 0.5 },
-          modulationEnvelope: { attack: 0.001, decay: 0.08, sustain: 0, release: 0.05 },
+          envelope: { attack: 0.003, decay: 0.55, sustain: 0, release: 0.5 },
+          modulationEnvelope: { attack: 0.002, decay: 0.08, sustain: 0, release: 0.05 },
         }),
         4200,
         -9,
@@ -156,18 +156,18 @@ export function buildRack(preset: MusicPreset, buses: Buses): Rack {
   const owned: Disposable[] = [];
   const own: Own = (n) => (owned.push(n), n);
 
-  const padFilter = own(new Tone.Filter(preset.pad.cutoff, 'lowpass', -12)).connect(buses.pad);
+  // One oscillator per pad note plus a single shared chorus for width. (Per-note detuned "fat" stacks
+  // sounded similar but cost several oscillators per note and were the biggest CPU load.)
+  const padChorus = own(new Tone.Chorus({ frequency: 0.6, delayTime: 3.5, depth: 0.6, spread: 160, wet: 0.55 }).start()).connect(buses.pad);
+  const padFilter = own(new Tone.Filter(preset.pad.cutoff, 'lowpass', -12)).connect(padChorus);
   const pad = own(
     new Tone.PolySynth(Tone.Synth, {
-      // fat* oscillators are detuned stacks: a soft, chorus-like width without an extra effect.
-      oscillator: (preset.pad.osc.startsWith('fat')
-        ? { type: preset.pad.osc, count: 3, spread: 18 }
-        : { type: preset.pad.osc }) as Tone.OmniOscillatorOptions,
-      envelope: { attack: preset.pad.attack, decay: 1, sustain: 0.75, release: preset.pad.release },
+      oscillator: { type: preset.pad.osc.replace(/^fat/, '') } as Tone.OmniOscillatorOptions,
+      envelope: { attack: preset.pad.attack, decay: 1, sustain: 0.75, release: Math.min(preset.pad.release, 4) },
     }),
   ).connect(padFilter);
-  pad.maxPolyphony = 24;
-  pad.volume.value = preset.pad.volume;
+  pad.maxPolyphony = 12;
+  pad.volume.value = preset.pad.volume + 3; // single oscillator per note is quieter than the old detuned stack
 
   const leads: Rack['leads'] = {};
   for (const id of presetVoices(preset)) leads[id] = buildVoice(id, buses.lead, own);
@@ -218,11 +218,11 @@ export function buildRack(preset: MusicPreset, buses: Buses): Rack {
       new Tone.PolySynth(Tone.Synth, {
         oscillator: (preset.id === 'house'
           ? { type: 'custom', partials: [1, 0.6, 0.4, 0.25, 0.1] }
-          : { type: 'fatsawtooth', count: 3, spread: 14 }) as Tone.OmniOscillatorOptions,
+          : { type: 'sawtooth' }) as Tone.OmniOscillatorOptions,
         envelope: { attack: 0.003, decay: 0.2, sustain: 0, release: 0.2 },
       }),
     ).connect(stabFilter);
-    stab.maxPolyphony = 16;
+    stab.maxPolyphony = 8;
     stab.volume.value = preset.id === 'house' ? -17 : -21;
   }
 
@@ -239,10 +239,11 @@ export function buildRack(preset: MusicPreset, buses: Buses): Rack {
 
   let rumble: Tone.MembraneSynth | null = null;
   if (preset.rumble) {
-    const rumbleLp = own(new Tone.Filter(130, 'lowpass', -24)).connect(buses.drums);
-    const rumbleVerb = own(new Tone.Reverb({ decay: 2.2, wet: 1 })).connect(rumbleLp);
-    rumble = own(new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 5, envelope: { attack: 0.001, decay: 0.5, sustain: 0, release: 0.1 } })).connect(rumbleVerb);
-    rumble.volume.value = -4;
+    // Rumble: a low-passed, fed-back echo of a soft kick (much cheaper than a second reverb).
+    const rumbleLp = own(new Tone.Filter(120, 'lowpass', -24)).connect(buses.drums);
+    const rumbleEcho = own(new Tone.FeedbackDelay({ delayTime: '16n', feedback: 0.45, wet: 1 })).connect(rumbleLp);
+    rumble = own(new Tone.MembraneSynth({ pitchDecay: 0.05, octaves: 4, envelope: { attack: 0.002, decay: 0.6, sustain: 0, release: 0.1 } })).connect(rumbleEcho);
+    rumble.volume.value = -5;
   }
 
   const hatFilter = own(new Tone.Filter(8000, 'highpass')).connect(buses.drums);
