@@ -50,12 +50,15 @@ export function PlaybackControls({ canPlay }: { canPlay: boolean }) {
           {s.muted ? 'Unmute' : 'Mute'}
         </button>
         <div className="now-playing">
-          <span className="now-playing__chord">{s.chord || '—'}</span>
+          <span className="now-playing__chord">
+            {s.chord || '—'}
+            {s.phase !== 'normal' && <span className={`phase phase--${s.phase}`}>{s.phase === 'drop' ? 'Drop' : 'Breakdown'}</span>}
+          </span>
           <span className="now-playing__section">
             {s.mode === 'analysing' ? 'Listening to the analysis…' : section ? section.title : 'Idle'}
           </span>
         </div>
-        <div className="segmented" role="radiogroup" aria-label="Music preset">
+        <div className="segmented segmented--wrap" role="radiogroup" aria-label="Music preset">
           {(Object.keys(PRESETS) as PresetId[]).map((id) => (
             <button
               key={id}
