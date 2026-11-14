@@ -8,6 +8,8 @@ import { isTouchDevice } from '../state/useMediaQuery';
 import { CameraRig, type TourState } from './CameraRig';
 import { CityScenery } from './CityScenery';
 import { Ground } from './Ground';
+import { Starfield } from './Starfield';
+import { ShootingStars } from './ShootingStars';
 import { LabelProjector } from './HubLabels';
 import type { CityPlan, Layout } from './layouts';
 import { metricValue, PALETTE, rampColor, ROLE_TINT } from './palette';
@@ -116,6 +118,8 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
       <pointLight position={[layout.radius, layout.radius, layout.radius]} intensity={60} distance={layout.radius * 5} color={PALETTE.teal} />
       <pointLight position={[-layout.radius, layout.radius * 0.6, -layout.radius]} intensity={45} distance={layout.radius * 5} color={PALETTE.pink} />
 
+      <Starfield count={LOW_POWER ? 5000 : 12000} />
+      <ShootingStars />
       <Ground mode={mode} radius={layout.radius} />
       <CityScenery plan={cityPlan} visible={mode === 'city'} />
       {/* Always mounted (one hidden twig outside the tree view) so the bark shader stays compiled. */}
