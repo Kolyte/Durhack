@@ -111,3 +111,28 @@ describe('model + DNA', () => {
     expect(dna.caveats.some((c) => c.includes('5 largest of 200'))).toBe(true);
   });
 });
+
+import { computeLayout } from '../../visualization/layouts';
+import { explainSection, purposeOf } from '../../model/explain';
+
+describe('tree layout + explanations', () => {
+  it('puts every file on a branch tip or the roots, with the trunk first', () => {
+    const layout = computeLayout(model, 'tree', null);
+    expect(layout.branches[0].start).toEqual([0, 0, 0]);
+    for (const id of model.files.keys()) expect(layout.files.has(id)).toBe(true);
+    for (const g of model.groups) expect(layout.hubs.has(g.key)).toBe(true);
+    // lib/router is a sub-branch of lib: deeper than lib's branch.
+    expect(layout.branches.some((b) => b.depth === 2)).toBe(true);
+  });
+
+  it('explains common folders and the overview', () => {
+    expect(purposeOf('lib/router', [])).toMatch(/Routing/);
+    expect(purposeOf('test', [])).toMatch(/tests/);
+    expect(purposeOf('(root)', [])).toMatch(/root/);
+    const dna = computeCodeDna(model, null);
+    const overview = explainSection({ kind: 'overview', title: 'Overview', groupKey: null, fileId: null }, model, null, dna);
+    expect(overview.body).toMatch(/areas/);
+    const hub = explainSection({ kind: 'hub', title: 'Hub', groupKey: 'lib', fileId: 'lib/app.js' }, model, null, dna);
+    expect(hub.body).toMatch(/imports 2 files and is imported by 1/);
+  });
+});

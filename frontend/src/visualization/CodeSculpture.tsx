@@ -12,6 +12,7 @@ import { metricValue, PALETTE, rampColor, ROLE_TINT } from './palette';
 import { DependencyCable } from './shapes/DependencyCable';
 import { DirectoryHub } from './shapes/DirectoryHub';
 import { FileShape } from './shapes/FileShape';
+import { TreeBranches } from './shapes/TreeBranches';
 
 interface Props {
   model: RepoModel;
@@ -22,10 +23,11 @@ interface Props {
   activeGroup: string | null;
   tour: TourState;
   onSelect: (id: string | null) => void;
+  onHover: (id: string | null, x: number, y: number) => void;
   onTourInterrupt: () => void;
 }
 
-export function CodeSculpture({ model, layout, mode, overlay, selectedId, activeGroup, tour, onSelect, onTourInterrupt }: Props) {
+export function CodeSculpture({ model, layout, mode, overlay, selectedId, activeGroup, tour, onSelect, onHover, onTourInterrupt }: Props) {
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const related = useMemo(
     () => new Set(selected ? [...selected.deps, ...selected.dependents] : []),
@@ -58,6 +60,7 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
       <pointLight position={[-layout.radius, layout.radius * 0.6, -layout.radius]} intensity={45} distance={layout.radius * 5} color={PALETTE.pink} />
 
       <Ground mode={mode} radius={layout.radius} />
+      {mode === 'tree' && <TreeBranches key={layout.branches.length} branches={layout.branches} />}
 
       {model.groups.map((g) => {
         const h = layout.hubs.get(g.key);
@@ -84,7 +87,7 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
               ? 'related'
               : 'dim';
         return (
-          <FileShape key={f.id} file={f} layout={l} mode={mode} color={c.color} metric={c.metric} emphasis={emphasis} onSelect={onSelect} />
+          <FileShape key={f.id} file={f} layout={l} mode={mode} color={c.color} metric={c.metric} emphasis={emphasis} onSelect={onSelect} onHover={onHover} />
         );
       })}
 
