@@ -10,6 +10,7 @@ export function ViewControls({
   onMode,
   onOverlay,
   onTour,
+  embedded = false,
 }: {
   mode: ViewMode;
   overlay: MetricOverlay;
@@ -18,10 +19,12 @@ export function ViewControls({
   onMode: (m: ViewMode) => void;
   onOverlay: (o: MetricOverlay) => void;
   onTour: (action: 'start' | 'pause' | 'resume' | 'exit') => void;
+  /** Rendered inside the mobile sheet rather than as its own floating panel. */
+  embedded?: boolean;
 }) {
   const info = OVERLAY_INFO[overlay];
   return (
-    <section className="view-controls panel" aria-label="View controls">
+    <section className={`view-controls${embedded ? '' : ' panel'}`} aria-label="View controls">
       <div className="segmented" role="radiogroup" aria-label="Visualisation">
         {(
           [
@@ -60,17 +63,11 @@ export function ViewControls({
           </button>
         ) : (
           <div className="chips">
-            {tour === 'running' ? (
-              <button className="chip" onClick={() => onTour('pause')}>
-                Pause
-              </button>
-            ) : (
-              <button className="chip is-on" onClick={() => onTour('resume')}>
-                Resume
-              </button>
-            )}
+            <button className={`chip${tour === 'paused' ? ' is-on' : ''}`} onClick={() => onTour(tour === 'running' ? 'pause' : 'resume')}>
+              {tour === 'running' ? 'Pause' : 'Resume'}
+            </button>
             <button className="chip" onClick={() => onTour('exit')}>
-              Exit
+              Exit tour
             </button>
           </div>
         )}

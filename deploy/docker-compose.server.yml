@@ -1,15 +1,19 @@
 # Server stack for small instances: runs a prebuilt image instead of building on the box.
 # Build & ship from a dev machine:
-#   docker buildx build --platform linux/amd64 -t codefugue-app:amd64 --load .
-#   docker save codefugue-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
+#   docker buildx build --platform linux/amd64 -t sonyx-app:amd64 --load .
+#   docker save sonyx-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
 # Then on the server (in the folder holding this file as docker-compose.yml, Caddyfile and .env):
 #   docker compose up -d
 services:
   app:
-    image: codefugue-app:amd64
+    image: sonyx-app:amd64
     restart: unless-stopped
     environment:
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Ranking database (Tiger Data). Without it the composer works and the leaderboard reports it is offline.
+      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://localhost:5432/codefugue}
+      DATABASE_USER: ${DATABASE_USER:-}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-}
       # Optional: Gemini file explanations (key from aistudio.google.com; never commit it).
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}

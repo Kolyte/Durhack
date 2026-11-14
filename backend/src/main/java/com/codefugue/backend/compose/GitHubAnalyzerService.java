@@ -249,7 +249,7 @@ public class GitHubAnalyzerService {
 
     private String fetchText(String url) throws Exception {
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url))
-                .header("User-Agent", "CodeFugue-DurHack");
+                .header("User-Agent", "Sonyx");
         if (githubToken != null && !githubToken.isBlank() && url.contains("api.github.com")) {
             req.header("Authorization", "Bearer " + githubToken);
         }
