@@ -52,10 +52,12 @@ export interface EngineState {
   phase: 'normal' | 'breakdown' | 'drop';
 }
 
-// More scheduling headroom: the 3D scene and React share the main thread with Tone's scheduler, so a
-// longer look-ahead keeps notes on time during heavy frames. (Configures Tone's existing context
-// rather than creating a second AudioContext.)
-Tone.getContext().lookAhead = 0.2;
+// Audio context tuned for smooth playback rather than minimum latency:
+//  - latencyHint 'playback' gives the audio thread a larger buffer, so a busy moment (3D rendering,
+//    many voices) doesn't cause dropouts, heard as crackling;
+//  - a longer look-ahead keeps notes on time when the main thread is briefly busy.
+// It must be set before any Tone node is created.
+Tone.setContext(new Tone.Context({ latencyHint: 'playback', lookAhead: 0.2 }));
 
 export const engineStore = createStore<EngineState>({
   preset: 'ambient',
@@ -106,10 +108,10 @@ class AudioEngine {
   private delayReturn!: Tone.Gain;
   /** Everything except drums passes through this gain, which the kick ducks (sidechain pumping). */
   private duck!: Tone.Gain;
-  private riser!: { gain: Tone.Gain; filter: Tone.Filter };
+  private riser!: { gain: Tone.Gain; filter: Tone.Filter; noise: Tone.Noise };
   private rack!: Rack;
-  /** Instruments per preset, built on first use and kept, so switching presets is instant. */
-  private racks = new Map<PresetId, Rack>();
+  /** Instruments built ahead for a preset you just picked (swapped in on the next bar line). */
+  private pendingRack: { id: PresetId; rack: Rack } | null = null;
   /** The preset/tempo currently sounding. UI changes are applied on the next bar line (see onBar). */
   private activePreset!: PresetId;
   private activeTempo = 0;
@@ -171,7 +173,8 @@ class AudioEngine {
     this.master.chain(this.masterFilter, comp, limiter, Tone.getDestination());
     this.duck = new Tone.Gain(1).connect(this.master);
 
-    const reverb = new Tone.Reverb({ decay: 7, preDelay: 0.03, wet: 1 });
+    // 4.5 s is still spacious; convolution cost grows with the tail length (7 s was a big CPU load).
+    const reverb = new Tone.Reverb({ decay: 4.5, preDelay: 0.03, wet: 1 });
     this.reverbReturn = new Tone.Gain(s.reverb * 1.2).connect(this.duck);
     reverb.connect(this.reverbReturn);
 
@@ -190,16 +193,15 @@ class AudioEngine {
     };
     this.buses = { pad: bus('pad'), lead: bus('lead'), arp: bus('arp'), bass: bus('bass'), drums: bus('drums') };
     this.rack = buildRack(preset, this.buses);
-    this.racks.set(s.preset, this.rack);
     this.activePreset = s.preset;
     this.activeTempo = s.tempo;
 
-    // Breakdown riser: filtered white noise that is silent until automated.
+    // Breakdown riser: filtered white noise, only running during the riser bar.
     const riserGain = new Tone.Gain(0).connect(this.master);
     riserGain.connect(new Tone.Gain(0.6).connect(reverb));
     const riserFilter = new Tone.Filter({ frequency: 400, type: 'bandpass', Q: 2.5 }).connect(riserGain);
-    new Tone.Noise('white').connect(riserFilter).start();
-    this.riser = { gain: riserGain, filter: riserFilter };
+    const riserNoise = new Tone.Noise('white').connect(riserFilter);
+    this.riser = { gain: riserGain, filter: riserFilter, noise: riserNoise };
 
     Tone.getDestination().mute = s.muted;
     const transport = Tone.getTransport();
@@ -348,16 +350,25 @@ class AudioEngine {
   setPreset(id: PresetId) {
     const preset = PRESETS[id];
     engineStore.set({ preset: id, tempo: preset.tempo, reverb: preset.reverb, phase: 'normal' });
-    if (this.ready) this.rackFor(id);
+    if (!this.ready || id === this.activePreset) {
+      this.pendingRack?.rack.dispose();
+      this.pendingRack = null;
+      return;
+    }
+    // Build now (on the click), swap on the next bar line. Only one spare rack exists at a time.
+    if (this.pendingRack?.id !== id) {
+      this.pendingRack?.rack.dispose();
+      this.pendingRack = { id, rack: buildRack(preset, this.buses) };
+    }
   }
 
   private rackFor(id: PresetId): Rack {
-    let rack = this.racks.get(id);
-    if (!rack) {
-      rack = buildRack(PRESETS[id], this.buses);
-      this.racks.set(id, rack);
+    if (this.pendingRack?.id === id) {
+      const { rack } = this.pendingRack;
+      this.pendingRack = null;
+      return rack;
     }
-    return rack;
+    return buildRack(PRESETS[id], this.buses);
   }
 
   /** Called at the start of a bar when the selected preset differs from the sounding one. */
@@ -370,6 +381,9 @@ class AudioEngine {
     old.acid?.synth.triggerRelease(time);
     this.rack = this.rackFor(id);
     this.activePreset = id;
+    // Free the old instruments once their release tails have rung out, so idle synths don't keep
+    // costing CPU (that made the audio crackle after a few preset changes).
+    window.setTimeout(() => old.dispose(), 6000);
     this.prevVoicing = null;
     this.motif = null;
     this.acid = null;
@@ -534,7 +548,7 @@ class AudioEngine {
         const voice = this.voice(preset, groupIdx);
         const t = at(n.step);
         const brightness = (0.7 + complexityLevel(file.complexity) * 0.8) * (0.8 + energy * 0.4) * (breakdown ? 0.7 : 1);
-        voice.filter.frequency.setValueAtTime(voice.baseCutoff * brightness, t);
+        voice.filter.frequency.linearRampToValueAtTime(voice.baseCutoff * brightness, t + 0.03);
         const vel = this.mode === 'analysing' ? n.velocity * 0.6 : n.velocity;
         voice.synth.triggerAttackRelease(midiToNote(n.midi), n.dur * six, t, vel);
         const nextStep = notes[i + 1]?.step ?? 16;
@@ -584,9 +598,9 @@ class AudioEngine {
         if (!this.acid) this.acid = acidPattern(files.length ? files : [], energy, this.rng);
         const cx = files.length ? files.reduce((sum, f) => sum + complexityLevel(f.complexity), 0) / files.length : 0.3;
         const { synth, filter } = this.rack.acid;
-        synth.filter.Q.setValueAtTime(5 + cx * 9, time);
+        synth.filter.Q.linearRampToValueAtTime(5 + cx * 9, time + 0.05);
         const sweep = 0.35 + 0.65 * ((phraseBar % 16) / 15);
-        filter.frequency.setValueAtTime(400 + 3600 * sweep * (0.6 + energy * 0.6), time);
+        filter.frequency.linearRampToValueAtTime(400 + 3600 * sweep * (0.6 + energy * 0.6), time + 0.05);
         this.acid.forEach((a, i) => {
           const next = this.acid![i + 1]?.step ?? 16;
           const len = a.slide ? (next - a.step) * six * 1.05 : six * 0.75;
@@ -612,8 +626,11 @@ class AudioEngine {
           this.mono(kick, t, () => kick.triggerAttackRelease('D1', '8n', t, Math.min(1, k * (0.6 + energy * 0.5))));
           if (rumble && i % 4 === 0) this.mono(rumble, t + six * 0.5, () => rumble.triggerAttackRelease('D1', '8n', t + six * 0.5, 0.55));
           if (pump > 0) {
-            this.duck.gain.setValueAtTime(1 - Math.min(0.8, pump), t);
-            this.duck.gain.linearRampToValueAtTime(1, t + six * 3.2);
+            // Fast but not instant dip (an instant step is an audible click), then recover.
+            const g = this.duck.gain;
+            g.cancelAndHoldAtTime(t);
+            g.linearRampToValueAtTime(1 - Math.min(0.8, pump), t + 0.006);
+            g.linearRampToValueAtTime(1, t + six * 3.2);
           }
           draw.schedule(() => pulseGround(k), t);
         }
@@ -660,6 +677,7 @@ class AudioEngine {
       g.linearRampToValueAtTime(0, time + barDur);
       this.riser.filter.frequency.setValueAtTime(350, time);
       this.riser.filter.frequency.exponentialRampToValueAtTime(9000, time + barDur);
+      this.riser.noise.start(time).stop(time + barDur + 0.05);
     }
 
     // Advance the arrangement.
@@ -718,7 +736,7 @@ class AudioEngine {
       { preset, chord: this.currentChord, rich: true, files: [file], prevMidi: 69, prevFile: undefined, phrasePos: 0.25, phraseEnd: true, energy: s.energy, rng },
       onsets,
     );
-    voice.filter.frequency.setValueAtTime(voice.baseCutoff * (0.8 + complexityLevel(file.complexity) * 0.7), t0);
+    voice.filter.frequency.linearRampToValueAtTime(voice.baseCutoff * (0.8 + complexityLevel(file.complexity) * 0.7), t0 + 0.03);
     notes.forEach((n) => {
       voice.synth.triggerAttackRelease(midiToNote(n.midi), n.dur * six, t0 + n.step * six, n.velocity);
       Tone.getDraw().schedule(() => pulseNode(file.id, 1), t0 + n.step * six);
