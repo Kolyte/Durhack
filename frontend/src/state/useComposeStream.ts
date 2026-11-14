@@ -16,7 +16,7 @@ export function useComposeStream() {
   const [edges, setEdges] = useState<DependencyEdge[]>([]);
   const [meta, setMeta] = useState<RepoMeta | null>(null);
   const [phase, setPhase] = useState<Phase>('idle');
-  const [status, setStatus] = useState('Paste a public GitHub repo or pick a preset');
+  const [status, setStatus] = useState('Paste a public GitHub repo and press Compose');
   const wsRef = useRef<WebSocket | null>(null);
 
   /**
