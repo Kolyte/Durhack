@@ -1120,11 +1120,22 @@ input[type='range']::-moz-range-thumb {
     min-width: 40%;
   }
 
+  /* The tablet rule above hides the floating DNA panel; the sheet version must still show. */
   .dna--embedded {
+    display: block;
     position: static;
     width: auto;
     max-height: none;
     padding: 0;
+  }
+
+  /* In the sheet the panel is always open; its collapse toggle would sit under the sheet's ✕. */
+  .dna--embedded .panel__head--button {
+    pointer-events: none;
+  }
+
+  .dna--embedded .panel__head--button > span[aria-hidden] {
+    display: none;
   }
 
   .tour-guide {
