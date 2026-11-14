@@ -1,4 +1,4 @@
-import { memo, useEffect, useMemo, useRef } from 'react';
+import { memo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Edges } from '@react-three/drei';
 import * as THREE from 'three';
@@ -30,23 +30,6 @@ export const DirectoryHub = memo(function DirectoryHub({
   const pos = useRef(new THREE.Vector3(...layout.pos));
   const target = useRef(new THREE.Vector3());
   const color = HUB_COLORS[group.index % HUB_COLORS.length];
-  const lampColor = useMemo(() => new THREE.Color('#fde68a'), []);
-  const street = useMemo(
-    () => ({
-      lamp: new THREE.MeshBasicMaterial({ color: '#fde68a', toneMapped: false }),
-      pole: new THREE.MeshStandardMaterial({ color: '#1e293b' }),
-    }),
-    [],
-  );
-  const lampRef = useRef(street.lamp);
-  useEffect(
-    () => () => {
-      street.lamp.dispose();
-      street.pole.dispose();
-    },
-    [street],
-  );
-
   useFrame((_, delta) => {
     target.current.set(...layout.pos);
     pos.current.lerp(target.current, 1 - Math.exp(-delta * 2.5));
@@ -59,7 +42,6 @@ export const DirectoryHub = memo(function DirectoryHub({
     if (glow.current) glow.current.emissiveIntensity = base + chord * 0.9 + beat * 0.25;
     if (starGlow.current) starGlow.current.emissiveIntensity = base + 0.3 + chord * 0.9 + beat * 0.1;
     if (halo.current) halo.current.opacity = 0.06 + chord * 0.12 + (active ? 0.05 : 0);
-    lampRef.current.color.copy(lampColor).multiplyScalar(0.55 + beat * 0.45);
   });
 
   // Both looks stay mounted and are shown/hidden per view, so their shaders are compiled once and
@@ -73,22 +55,6 @@ export const DirectoryHub = memo(function DirectoryHub({
           <meshStandardMaterial ref={glow} color={PALETTE.navy} emissive={color} emissiveIntensity={0.2} roughness={0.8} />
           <Edges color={color} />
         </mesh>
-        {/* Streetlights on the block corners: they pulse with the kick drum. */}
-        {[
-          [-1, -1],
-          [1, -1],
-          [-1, 1],
-          [1, 1],
-        ].map(([sx, sz]) => (
-          <group key={`${sx}${sz}`} position={[(sx * layout.width) / 2 - sx * 0.12, 0, (sz * layout.depth) / 2 - sz * 0.12]}>
-            <mesh position={[0, 0.35, 0]} material={street.pole}>
-              <cylinderGeometry args={[0.018, 0.024, 0.7, 5]} />
-            </mesh>
-            <mesh position={[0, 0.72, 0]} material={street.lamp}>
-              <sphereGeometry args={[0.055, 10, 8]} />
-            </mesh>
-          </group>
-        ))}
       </group>
       <group visible={!city}>
         <mesh>

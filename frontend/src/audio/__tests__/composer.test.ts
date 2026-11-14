@@ -184,3 +184,35 @@ describe('presets and techno features', () => {
     }
   });
 });
+
+describe('code city plan', () => {
+  const many = buildRepoModel(
+    Array.from({ length: 60 }, (_, i) => file(`${['src', 'lib', 'app', 'core'][i % 4]}/${['a', 'b', 'c'][i % 3]}/f${i}.js`, { loc: 50 + i * 7 })),
+    [],
+  );
+  const overlaps = (a: { x: number; z: number; w: number; d: number }, b: typeof a) =>
+    Math.abs(a.x - b.x) * 2 < a.w + b.w - 1e-6 && Math.abs(a.z - b.z) * 2 < a.d + b.d - 1e-6;
+
+  it('packs districts and parks without overlaps, with a river crossed by bridges', () => {
+    const layout = computeLayout(many, 'city', null);
+    const plan = layout.city!;
+    const districts = [...layout.hubs.values()].map((h) => ({ x: h.pos[0], z: h.pos[2], w: h.width, d: h.depth }));
+    for (let i = 0; i < districts.length; i++) for (let j = i + 1; j < districts.length; j++) expect(overlaps(districts[i], districts[j])).toBe(false);
+    for (const p of plan.parks) for (const d of districts) expect(overlaps(p, d)).toBe(false);
+    expect(plan.river).not.toBeNull();
+    for (const d of districts) expect(overlaps(plan.river!, d)).toBe(false);
+    expect(plan.bridges.length).toBeGreaterThanOrEqual(2);
+    for (const b of plan.bridges) expect(Math.abs(b.z - plan.river!.z)).toBeLessThan(0.01);
+    expect(plan.trees.length).toBeGreaterThan(0);
+  });
+
+  it('places every file on its district', () => {
+    const layout = computeLayout(many, 'city', null);
+    for (const f of many.files.values()) {
+      const h = layout.hubs.get(f.group)!;
+      const p = layout.files.get(f.id)!.pos;
+      expect(Math.abs(p[0] - h.pos[0])).toBeLessThanOrEqual(h.width / 2);
+      expect(Math.abs(p[2] - h.pos[2])).toBeLessThanOrEqual(h.depth / 2);
+    }
+  });
+});
