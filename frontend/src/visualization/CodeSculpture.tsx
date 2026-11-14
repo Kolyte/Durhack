@@ -4,6 +4,7 @@ import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { RepoModel } from '../model/repoModel';
 import type { MetricOverlay, ViewMode } from '../types';
+import { isTouchDevice } from '../state/useMediaQuery';
 import { CameraRig, type TourState } from './CameraRig';
 import { CityScenery } from './CityScenery';
 import { Ground } from './Ground';
@@ -29,6 +30,10 @@ interface Props {
   /** The city's streets/parks/river, kept mounted (hidden) in other views so switching back is instant. */
   cityPlan: CityPlan | undefined;
 }
+
+// Phones and tablets: a lower pixel ratio and no MSAA keep the frame rate (and the battery) up.
+// Their screens are dense enough that the difference is hard to see.
+const LOW_POWER = isTouchDevice();
 
 const WARM_BRANCH: Layout['branches'] = [{ start: [0, -50, 0], end: [0, -49, 0], radius: 0.01, depth: 0 }];
 
@@ -95,8 +100,8 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
     <Canvas
       camera={{ position: [14, 12, 18], fov: 48, near: 0.1, far: 600 }}
       // Capped pixel ratio + modest MSAA: bloom on a full Retina buffer was the biggest GPU cost.
-      dpr={[1, 1.5]}
-      gl={{ antialias: true, powerPreference: 'high-performance' }}
+      dpr={LOW_POWER ? [1, 1.25] : [1, 1.5]}
+      gl={{ antialias: !LOW_POWER, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => {
         // Querying shader logs forces the driver to finish compiling synchronously; skip it in production.
         gl.debug.checkShaderErrors = import.meta.env.DEV;
@@ -162,7 +167,7 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
 
       <LabelProjector layout={layout} mode={mode} />
       <CameraRig layout={layout} tour={tour} selectedId={selectedId} onInterrupt={onTourInterrupt} />
-      <EffectComposer multisampling={4}>
+      <EffectComposer multisampling={LOW_POWER ? 0 : 4}>
         <Bloom intensity={0.75} luminanceThreshold={0.55} luminanceSmoothing={0.3} mipmapBlur />
         <Vignette offset={0.25} darkness={0.65} />
       </EffectComposer>
