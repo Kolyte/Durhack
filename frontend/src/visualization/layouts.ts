@@ -42,6 +42,8 @@ export interface Layout {
   radius: number;
   /** Bounding sphere of everything drawn: used to frame the camera. */
   bounds: { center: Vec3; radius: number };
+  /** City only: roads, parks, river, bridges… */
+  city?: CityPlan;
 }
 
 const GOLDEN = 2.39996;
@@ -61,7 +63,7 @@ export function planetSize(loc: number, degree: number): number {
 
 export function computeLayout(model: RepoModel, mode: ViewMode, dna: CodeDna | null): Layout {
   const layout =
-    mode === 'city' ? cityLayout(model, dna) : mode === 'tree' ? treeLayout(model) : galaxyLayout(model, dna);
+    mode === 'city' ? cityLayout(model) : mode === 'tree' ? treeLayout(model) : galaxyLayout(model, dna);
   layout.bounds = boundingSphere(layout);
   return layout;
 }
@@ -74,6 +76,10 @@ function boundingSphere(layout: Layout): { center: Vec3; radius: number } {
   }
   for (const h of layout.hubs.values()) pts.push(h.pos);
   for (const b of layout.branches) pts.push(b.end);
+  if (layout.city) {
+    const g = layout.city.ground;
+    pts.push([g.x - g.w / 2, 0, g.z - g.d / 2], [g.x + g.w / 2, 0, g.z + g.d / 2]);
+  }
   if (pts.length === 0) return { center: layout.center, radius: layout.radius };
   const min = [Infinity, Infinity, Infinity];
   const max = [-Infinity, -Infinity, -Infinity];
@@ -88,31 +94,95 @@ function boundingSphere(layout: Layout): { center: Vec3; radius: number } {
   return { center, radius };
 }
 
-function cityLayout(model: RepoModel, dna: CodeDna | null): Layout {
+/** Axis-aligned rectangle on the ground: centre (x, z), width along x, depth along z. */
+export interface Rect {
+  x: number;
+  z: number;
+  w: number;
+  d: number;
+}
+
+/** Everything static in Code City besides the buildings: drawn by <CityScenery/> in a few batched meshes. */
+export interface CityPlan {
+  ground: Rect;
+  parks: Rect[];
+  river: Rect | null;
+  bridges: Rect[];
+  /** Lane markings: centre point and whether the road runs along x. */
+  dashes: { x: number; z: number; alongX: boolean }[];
+  lamps: [number, number][];
+  /** x, z, scale */
+  trees: [number, number, number][];
+  /** Changes only when the city's shape changes (used to avoid rebuilding scenery). */
+  signature: string;
+}
+
+const LOT = 1.35; // spacing between building lots
+const ROAD = 1.3;
+const RIVER = 2.6;
+const DASH_STEP = 0.9;
+
+const topSegment = (key: string) => (key === '(root)' ? '' : key.split('/')[0]);
+
+/**
+ * Code City: districts (directories) are packed edge to edge into rows, separated by roads.
+ * Gaps left by uneven district sizes become parks, a river runs between the middle rows with
+ * bridges where the streets cross it, and files are buildings on each district's lots.
+ */
+function cityLayout(model: RepoModel): Layout {
   const files = new Map<string, FileLayout>();
   const hubs = new Map<string, HubLayout>();
-  const spacing = 1.35;
-  const gap = 1.6 + (dna?.modularity ?? 0.5) * 2.4; // modular repos get clearly separated neighbourhoods
 
-  const blocks = model.groups.map((g) => {
-    const cols = Math.ceil(Math.sqrt(g.files.length));
+  // Keep related districts together (lib/*, examples/*…), biggest first within each area.
+  const groups = [...model.groups].sort(
+    (a, b) => topSegment(a.key).localeCompare(topSegment(b.key)) || b.files.length - a.files.length,
+  );
+  const blocks = groups.map((g) => {
+    const cols = Math.max(1, Math.ceil(Math.sqrt(g.files.length)));
     const rows = Math.ceil(g.files.length / cols);
-    return { g, cols, rows, w: cols * spacing + 0.8, d: rows * spacing + 0.8 };
+    return { g, cols, rows, w: cols * LOT + 0.4, d: rows * LOT + 0.4 };
   });
-  const perRow = Math.max(1, Math.ceil(Math.sqrt(blocks.length)));
+  if (blocks.length === 0) {
+    const ground = { x: 0, z: 0, w: 10, d: 10 };
+    return { mode: 'city', files, hubs, branches: [], center: [0, 0, 0], radius: 8, bounds: NO_BOUNDS, city: { ground, parks: [], river: null, bridges: [], dashes: [], lamps: [], trees: [], signature: '' } };
+  }
+
+  // Row packing to a roughly square city.
+  const area = blocks.reduce((s, b) => s + (b.w + ROAD) * (b.d + ROAD), 0);
+  const width = Math.max(...blocks.map((b) => b.w), Math.sqrt(area) * 1.2);
+  const rows: (typeof blocks)[] = [[]];
+  let x = 0;
+  for (const b of blocks) {
+    if (x > 0 && x + b.w > width) {
+      rows.push([]);
+      x = 0;
+    }
+    rows[rows.length - 1].push(b);
+    x += b.w + ROAD;
+  }
+  const riverAfter = rows.length >= 2 ? Math.floor(rows.length / 2) - 1 : -1;
+
+  const parks: Rect[] = [];
+  const dashes: CityPlan['dashes'] = [];
+  const lamps: [number, number][] = [];
+  const bridges: Rect[] = [];
+  let river: Rect | null = null;
+  const vRoadsAboveRiver: number[] = [-ROAD / 2, width + ROAD / 2];
+  const hRoads: number[] = [-ROAD / 2];
+  const vSegments: { x: number; z0: number; z1: number }[] = [];
 
   let z = 0;
-  let maxX = 0;
-  for (let r = 0; r * perRow < blocks.length; r++) {
-    const row = blocks.slice(r * perRow, (r + 1) * perRow);
-    const rowDepth = Math.max(...row.map((b) => b.d));
-    let x = 0;
+  rows.forEach((row, r) => {
+    const depth = Math.max(...row.map((b) => b.d));
+    let bx = 0;
     for (const b of row) {
-      const cx = x + b.w / 2;
-      const cz = z + rowDepth / 2;
+      const cx = bx + b.w / 2;
+      const cz = z + b.d / 2;
       hubs.set(b.g.key, { pos: [cx, 0, cz], width: b.w, depth: b.d });
-      // Largest files nearest the middle of the block.
-      const sorted = [...b.g.files].sort((a, c) => model.files.get(c)!.loc - model.files.get(a)!.loc);
+      lamps.push([bx - 0.25, z - 0.25], [bx + b.w + 0.25, z - 0.25], [bx - 0.25, z + b.d + 0.25], [bx + b.w + 0.25, z + b.d + 0.25]);
+
+      // Largest files on the lots nearest the middle of the district.
+      const sorted = [...b.g.files].sort((p, q) => model.files.get(q)!.loc - model.files.get(p)!.loc);
       const cells: [number, number][] = [];
       for (let i = 0; i < b.cols; i++) for (let j = 0; j < b.rows; j++) cells.push([i, j]);
       const mid = [(b.cols - 1) / 2, (b.rows - 1) / 2];
@@ -121,25 +191,87 @@ function cityLayout(model: RepoModel, dna: CodeDna | null): Layout {
         const f = model.files.get(id)!;
         const [i, j] = cells[k];
         files.set(id, {
-          pos: [cx + (i - mid[0]) * spacing, 0, cz + (j - mid[1]) * spacing],
+          pos: [cx + (i - mid[0]) * LOT, 0, cz + (j - mid[1]) * LOT],
           height: buildingHeight(f.loc, f.kind),
-          // Bigger files get wider footprints (within the street grid).
           footprint: 0.55 + 0.35 * Math.min(1, Math.log(1 + f.loc) / Math.log(1 + model.maxLoc)),
           size: 0.4,
         });
       });
-      x += b.w + gap;
+
+      // A district shallower than its row leaves room for a park below it.
+      if (depth - b.d > 1.1) parks.push({ x: cx, z: z + b.d + (depth - b.d) / 2 + 0.15, w: b.w, d: depth - b.d - 0.3 });
+      bx += b.w;
+      if (b !== row[row.length - 1]) {
+        vSegments.push({ x: bx + ROAD / 2, z0: z, z1: z + depth });
+        if (r === riverAfter) vRoadsAboveRiver.push(bx + ROAD / 2);
+      }
+      bx += ROAD;
     }
-    maxX = Math.max(maxX, x - gap);
-    z += rowDepth + gap;
+    // Space at the end of a short row becomes a park.
+    const used = bx - ROAD;
+    if (width - used > 1.4) {
+      parks.push({ x: used + ROAD + (width - used - ROAD) / 2, z: z + depth / 2, w: width - used - ROAD, d: depth });
+      vSegments.push({ x: used + ROAD / 2, z0: z, z1: z + depth });
+    }
+    z += depth;
+    if (r === riverAfter) {
+      river = { x: width / 2, z: z + RIVER / 2, w: width + ROAD * 2, d: RIVER };
+      z += RIVER;
+    } else if (r < rows.length - 1) {
+      hRoads.push(z + ROAD / 2);
+      z += ROAD;
+    }
+  });
+  hRoads.push(z + ROAD / 2);
+  const depthTotal = z;
+
+  // Bridges carry every street that meets the river.
+  if (river) {
+    const rv = river as Rect;
+    for (const vx of vRoadsAboveRiver) bridges.push({ x: vx, z: rv.z, w: ROAD * 0.8, d: RIVER + 0.5 });
   }
 
-  // Centre the city on the origin.
-  const ox = maxX / 2;
-  const oz = (z - gap) / 2;
+  // Lane markings: perimeter + streets between rows, and streets between districts.
+  for (const hz of hRoads) for (let dx = -ROAD; dx <= width + ROAD; dx += DASH_STEP) dashes.push({ x: dx, z: hz, alongX: true });
+  for (const vx of [-ROAD / 2, width + ROAD / 2]) for (let dz = 0; dz <= depthTotal; dz += DASH_STEP) {
+    if (river && Math.abs(dz - (river as Rect).z) < RIVER / 2) continue;
+    dashes.push({ x: vx, z: dz, alongX: false });
+  }
+  for (const seg of vSegments) for (let dz = seg.z0 + 0.3; dz <= seg.z1 - 0.3; dz += DASH_STEP) dashes.push({ x: seg.x, z: dz, alongX: false });
+
+  // Trees: a loose, deterministic grid in every park.
+  const trees: [number, number, number][] = [];
+  let seed = 11;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  for (const pk of parks) {
+    for (let tx = pk.x - pk.w / 2 + 0.45; tx <= pk.x + pk.w / 2 - 0.3; tx += 0.85) {
+      for (let tz = pk.z - pk.d / 2 + 0.45; tz <= pk.z + pk.d / 2 - 0.3; tz += 0.85) {
+        if (rnd() < 0.18 || trees.length > 500) continue;
+        trees.push([tx + (rnd() - 0.5) * 0.3, tz + (rnd() - 0.5) * 0.3, 0.75 + rnd() * 0.5]);
+      }
+    }
+  }
+
+  // Centre everything on the origin.
+  const ox = width / 2;
+  const oz = depthTotal / 2;
+  const shift = (r: Rect): Rect => ({ ...r, x: r.x - ox, z: r.z - oz });
   for (const f of files.values()) f.pos = [f.pos[0] - ox, 0, f.pos[2] - oz];
   for (const h of hubs.values()) h.pos = [h.pos[0] - ox, 0, h.pos[2] - oz];
-  return { mode: 'city', files, hubs, branches: [], center: [0, 0, 0], radius: Math.max(8, Math.hypot(ox, oz)), bounds: NO_BOUNDS };
+  const plan: CityPlan = {
+    ground: { x: 0, z: 0, w: width + ROAD * 2, d: depthTotal + ROAD * 2 },
+    parks: parks.map(shift),
+    river: river ? shift(river) : null,
+    bridges: bridges.map(shift),
+    dashes: dashes.map((d) => ({ ...d, x: d.x - ox, z: d.z - oz })),
+    lamps: lamps.map(([lx, lz]) => [lx - ox, lz - oz] as [number, number]),
+    trees: trees.map(([tx, tz, sc]) => [tx - ox, tz - oz, sc] as [number, number, number]),
+    signature: '',
+  };
+  plan.signature = [plan.ground.w, plan.ground.d, parks.length, bridges.length, dashes.length, trees.length, lamps.length]
+    .map((v) => Math.round(v * 100))
+    .join(',');
+  return { mode: 'city', files, hubs, branches: [], center: [0, 0, 0], radius: Math.max(8, Math.hypot(ox, oz)), bounds: NO_BOUNDS, city: plan };
 }
 
 function galaxyLayout(model: RepoModel, dna: CodeDna | null): Layout {

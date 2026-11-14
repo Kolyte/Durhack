@@ -23,10 +23,10 @@ export function Ground({ mode, radius }: { mode: ViewMode; radius: number }) {
   // Both looks stay mounted (hidden when not in use) so switching views never recompiles shaders.
   return (
     <group>
-      <group visible={mode !== 'galaxy'}>
+      <group visible={mode === 'tree'}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.13, 0]}>
           <circleGeometry args={[size, 64]} />
-          <meshStandardMaterial color={mode === 'city' ? '#0a1022' : PALETTE.bg} roughness={1} />
+          <meshStandardMaterial color={PALETTE.bg} roughness={1} />
         </mesh>
         {/* Fixed-size grid, scaled per view: changing its args would recreate it (and its shader). */}
         <gridHelper
