@@ -15,13 +15,15 @@ class ComposeEventJsonTest {
 
     @Test
     void repoTreeSerializesWithTypeAndNodes() {
-        FileNode n = new FileNode("src/a.js", "src/a.js", "src", 1, 1.5, 0, -2, 40, 3, 1, false);
-        JsonNode json = mapper.readTree(mapper.writeValueAsString(new ComposeEvent.RepoTree("o/r", 110, List.of(n))));
+        FileNode n = new FileNode("src/a.js", "src/a.js", "src", 1, 40, 3, 1, 2, "source", false);
+        JsonNode json = mapper.readTree(mapper.writeValueAsString(
+                new ComposeEvent.RepoTree("o/r", 110, 5, 300, 48, false, List.of(n))));
         assertEquals("REPO_TREE", json.path("type").asString());
         assertEquals("o/r", json.path("repoName").asString());
         assertEquals(110, json.path("bpm").asInt());
         assertEquals("src/a.js", json.path("nodes").get(0).path("id").asString());
-        assertEquals(1.5, json.path("nodes").get(0).path("x").asDouble());
+        assertEquals("source", json.path("nodes").get(0).path("role").asString());
+        assertEquals(300, json.path("totalCodeFiles").asInt());
     }
 
     @Test
