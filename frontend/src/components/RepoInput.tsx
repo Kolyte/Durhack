@@ -1,11 +1,8 @@
 import { useState } from 'react';
 import type { Phase } from '../state/useComposeStream';
 
-const PRESET_REPOS = [
-  { label: 'Express', url: 'https://github.com/expressjs/express' },
-  { label: 'PetClinic', url: 'https://github.com/spring-projects/spring-petclinic' },
-  { label: 'Flask', url: 'https://github.com/pallets/flask' },
-];
+/** Pre-filled so first-time visitors can just press Compose. */
+const DEFAULT_REPO_URL = 'https://github.com/expressjs/express';
 
 export function RepoInput({
   phase,
@@ -27,7 +24,7 @@ export function RepoInput({
   // A shared link like ?repo=owner/name pre-fills the box (audio still needs a click to start).
   const [url, setUrl] = useState(() => {
     const repo = new URLSearchParams(window.location.search).get('repo');
-    return repo ? (repo.startsWith('http') ? repo : `https://github.com/${repo}`) : PRESET_REPOS[0].url;
+    return repo ? (repo.startsWith('http') ? repo : `https://github.com/${repo}`) : DEFAULT_REPO_URL;
   });
   const go = (target: string) => {
     const short = target.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\.git$|\/+$/g, '');
@@ -96,22 +93,10 @@ export function RepoInput({
         <button className="btn btn--primary" type="submit" disabled={busy}>
           {busy ? 'Composing…' : 'Compose'}
         </button>
+        <a className="btn btn--accent nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
+          🏆<span className="nav-button__label"> Leaderboard</span>
+        </a>
       </form>
-      <div className="chips">
-        {PRESET_REPOS.map((p) => (
-          <button
-            key={p.label}
-            className="chip"
-            disabled={busy}
-            onClick={() => {
-              setUrl(p.url);
-              go(p.url);
-            }}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
       <div className={`status${phase === 'error' ? ' status--error' : ''}`} role="status">
         {status}
         {showProgress && (
@@ -120,9 +105,6 @@ export function RepoInput({
           </div>
         )}
       </div>
-      <a className="btn btn--accent nav-button" href="/ranking.html">
-        🏆 Leaderboard
-      </a>
     </header>
   );
 }
