@@ -201,7 +201,7 @@ export default function App() {
             composition generated from its structure: directories become instruments, imports become melodies,
             concurrency becomes rhythm.
           </p>
-          <p className="hero__hint">Pick a preset above or paste a repo URL, then press Compose. Sound on 🎧</p>
+          <p className="hero__hint">Paste a public GitHub repo URL above, then press Compose. Sound on 🎧</p>
         </div>
       )}
 
