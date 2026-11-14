@@ -116,7 +116,7 @@ public class GitHubAnalyzerService {
             }
 
             int sampledCode = Math.min(code.size(), MAX_CODE_FILES);
-            emit.accept(new ComposeEvent.RepoTree(owner + "/" + repo, bpm, stars, code.size(), sampledCode,
+            emit.accept(new ComposeEvent.RepoTree(owner + "/" + repo, branch, bpm, stars, code.size(), sampledCode,
                     treeRoot.path("truncated").asBoolean(false), initialNodes));
 
             Semaphore limiter = new Semaphore(MAX_CONCURRENT_FETCHES);

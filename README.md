@@ -63,6 +63,32 @@ The backend samples the 48 largest source and test files, plus up to 8 config fi
 
 Event shapes: `backend/.../compose/ComposeEvent.java` ⇄ `frontend/src/types.ts`. Keep them in sync.
 
+## Gemini explanations (optional)
+
+The file inspector can ask Google Gemini to explain a file. Click a building, then press **✨ Explain with Gemini**.
+
+How it works:
+- The browser calls our backend (`POST /api/explain`).
+- The backend downloads the file from GitHub and sends it to Gemini with the API key.
+- The answer replaces the built-in explanation. If Gemini isn't configured, is over quota or fails, the built-in explanation stays.
+- **The key never reaches the browser.**
+
+Setup:
+1. Create a free API key at [Google AI Studio](https://aistudio.google.com) → API keys. Use a project **without billing** so it stays on the free tier.
+2. Before starting the backend:
+   ```bash
+   read -s "GEMINI_API_KEY?Paste key: " && export GEMINI_API_KEY
+   ```
+   On the server, put `GEMINI_API_KEY=...` in the `.env` file next to the compose file. Never commit it.
+3. Optional: `GEMINI_MODEL` (default `gemini-3.5-flash-lite`). Use any model listed in AI Studio, ideally a Flash or Lite one with a generous free limit.
+
+Protecting the free quota:
+- Gemini is only called when you press the button.
+- Answers are cached per file on the server and in the browser.
+- The server allows at most `GEMINI_MAX_PER_MINUTE` (default 15) requests per minute.
+
+`GET /api/explain/status` shows whether Gemini is enabled and which model is used.
+
 ## Running locally
 
 Prerequisites: **Java 21+** and **Node 20+** (Maven not needed — the wrapper downloads it).
