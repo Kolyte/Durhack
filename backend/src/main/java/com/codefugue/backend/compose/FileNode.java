@@ -1,4 +1,4 @@
-package com.sonyx.backend.compose;
+package com.codefugue.backend.compose;
 
 /**
  * One sampled file. Layout/positions are computed by the frontend (it owns the views).
