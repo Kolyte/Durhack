@@ -1,0 +1,9 @@
+.git
+**/node_modules
+frontend/dist
+backend/target
+.env
+.env.*
+.vscode
+.idea
+**/.DS_Store

@@ -1,0 +1,29 @@
+# Production stack: Spring Boot app (frontend bundled) behind Caddy for automatic HTTPS.
+# Configure via a .env file next to this one: DOMAIN=<ip-with-dashes>.sslip.io, GITHUB_TOKEN=...
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. 203-0-113-10.sslip.io}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

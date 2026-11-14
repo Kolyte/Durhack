@@ -3,7 +3,10 @@ import { CodeSculpture } from './CodeSculpture';
 import { audioEngine } from './audioEngine';
 import type { ComposeEvent, FileNode, DependencyEdge } from './types';
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080/ws/compose';
+// Same-origin by default: works behind Caddy (wss://) in production and via the Vite proxy in dev.
+const WS_URL =
+  import.meta.env.VITE_WS_URL ??
+  `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/compose`;
 
 const PRESETS = [
   { label: 'Express', url: 'https://github.com/expressjs/express' },

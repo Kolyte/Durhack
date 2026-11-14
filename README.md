@@ -62,6 +62,29 @@ Open http://localhost:5173, then click **Compose** or a preset. Audio starts on 
 
 Tests: `cd backend && ./mvnw test` · Frontend type-check & build: `cd frontend && npm run build`
 
+The frontend connects to `/ws/compose` on its own host; in dev, Vite proxies that to `localhost:8080`. Set `VITE_WS_URL` to override.
+
+## Deploying on Vultr
+
+One Docker image (Vite build bundled into the Spring Boot jar) behind Caddy, which gets a Let's Encrypt cert for a free `sslip.io` hostname — so the demo is served over `https://` / `wss://`.
+
+1. Create a Vultr Cloud Compute instance (Ubuntu 24.04 LTS, 1 vCPU / 1–2 GB is plenty) with your SSH key, and open ports 80 and 443.
+2. On the instance:
+
+   ```bash
+   curl -fsSL https://get.docker.com | sh
+   git clone https://github.com/Kolyte/Durhack.git && cd Durhack
+   cat > .env <<EOF
+   DOMAIN=$(curl -s https://api.ipify.org | tr . -).sslip.io
+   GITHUB_TOKEN=ghp_your_token_here
+   EOF
+   docker compose up -d --build
+   ```
+
+3. Open `https://<ip-with-dashes>.sslip.io`. Update with `git pull && docker compose up -d --build`.
+
+Local smoke test of the same stack: `DOMAIN=http://localhost docker compose up --build`, then open http://localhost.
+
 ## Project layout
 
 ```
