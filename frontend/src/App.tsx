@@ -9,7 +9,7 @@ import { RepoInput } from './components/RepoInput';
 import { ViewControls } from './components/ViewControls';
 import { computeCodeDna } from './model/codeDna';
 import { buildRepoModel } from './model/repoModel';
-import { useStore } from './state/store';
+import { useStoreSelector } from './state/store';
 import { useComposeStream } from './state/useComposeStream';
 import type { MetricOverlay, ViewMode } from './types';
 import type { TourState } from './visualization/CameraRig';
@@ -23,7 +23,10 @@ export default function App() {
   const [overlay, setOverlay] = useState<MetricOverlay>('complexity');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tour, setTour] = useState<TourState>('off');
-  const engine = useStore(engineStore);
+  // Only re-render App when the active directory changes, not on every bar/chord (that blocked audio).
+  const activeGroup = useStoreSelector(engineStore, (e) =>
+    e.mode === 'composition' ? (e.sections[e.sectionIndex]?.groupKey ?? null) : null,
+  );
 
   const model = useMemo(() => buildRepoModel(nodes, edges), [nodes, edges]);
   const dna = useMemo(() => computeCodeDna(model, meta), [model, meta]);
@@ -99,7 +102,6 @@ export default function App() {
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const analysed = nodes.filter((n) => n.analyzed).length;
   const hasRepo = model.files.size > 0;
-  const activeGroup = engine.mode === 'composition' ? (engine.sections[engine.sectionIndex]?.groupKey ?? null) : null;
 
   return (
     <div className="app">

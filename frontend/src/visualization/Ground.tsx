@@ -19,27 +19,28 @@ export function Ground({ mode, radius }: { mode: ViewMode; radius: number }) {
     }
   });
 
-  const size = Math.ceil(radius * 2.6 / 2) * 2;
-  if (mode !== 'galaxy') {
-    return (
-      <group>
+  const size = Math.ceil((radius * 2.6) / 2) * 2;
+  // Both looks stay mounted (hidden when not in use) so switching views never recompiles shaders.
+  return (
+    <group>
+      <group visible={mode !== 'galaxy'}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.13, 0]}>
           <circleGeometry args={[size, 64]} />
           <meshStandardMaterial color={mode === 'city' ? '#0a1022' : PALETTE.bg} roughness={1} />
         </mesh>
+        {/* Fixed-size grid, scaled per view: changing its args would recreate it (and its shader). */}
         <gridHelper
           ref={grid}
-          args={[size * 2, size * 2, PALETTE.grid, PALETTE.grid]}
+          args={[2, 40, PALETTE.grid, PALETTE.grid]}
+          scale={[size, 1, size]}
           position={[0, -0.12, 0]}
           material-transparent
           material-opacity={0.35}
         />
       </group>
-    );
-  }
-  return (
-    <group>
-      <Stars radius={radius * 4} depth={40} count={2500} factor={3} saturation={0} fade speed={0.4} />
+      <group visible={mode === 'galaxy'}>
+        <Stars radius={Math.max(60, Math.round(radius / 10) * 40)} depth={40} count={2500} factor={3} saturation={0} fade speed={0.4} />
+      </group>
     </group>
   );
 }

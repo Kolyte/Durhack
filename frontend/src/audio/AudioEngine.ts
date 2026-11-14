@@ -52,6 +52,11 @@ export interface EngineState {
   phase: 'normal' | 'breakdown' | 'drop';
 }
 
+// More scheduling headroom: the 3D scene and React share the main thread with Tone's scheduler, so a
+// longer look-ahead keeps notes on time during heavy frames. (Configures Tone's existing context
+// rather than creating a second AudioContext.)
+Tone.getContext().lookAhead = 0.2;
+
 export const engineStore = createStore<EngineState>({
   preset: 'ambient',
   volume: 0.8,
@@ -103,6 +108,11 @@ class AudioEngine {
   private duck!: Tone.Gain;
   private riser!: { gain: Tone.Gain; filter: Tone.Filter };
   private rack!: Rack;
+  /** Instruments per preset, built on first use and kept, so switching presets is instant. */
+  private racks = new Map<PresetId, Rack>();
+  /** The preset/tempo currently sounding. UI changes are applied on the next bar line (see onBar). */
+  private activePreset!: PresetId;
+  private activeTempo = 0;
 
   private model: RepoModel | null = null;
   private dna: CodeDna | null = null;
@@ -180,6 +190,9 @@ class AudioEngine {
     };
     this.buses = { pad: bus('pad'), lead: bus('lead'), arp: bus('arp'), bass: bus('bass'), drums: bus('drums') };
     this.rack = buildRack(preset, this.buses);
+    this.racks.set(s.preset, this.rack);
+    this.activePreset = s.preset;
+    this.activeTempo = s.tempo;
 
     // Breakdown riser: filtered white noise that is silent until automated.
     const riserGain = new Tone.Gain(0).connect(this.master);
@@ -327,23 +340,50 @@ class AudioEngine {
 
   // ───────────────────────────── settings ─────────────────────────────
 
+  /**
+   * Selects a preset. Its instruments are built (or fetched from the cache) right away, but the switch
+   * itself happens on the next bar line, together with the tempo change, so nothing plays half a bar
+   * at the wrong speed.
+   */
   setPreset(id: PresetId) {
     const preset = PRESETS[id];
     engineStore.set({ preset: id, tempo: preset.tempo, reverb: preset.reverb, phase: 'normal' });
-    if (!this.ready) return;
+    if (this.ready) this.rackFor(id);
+  }
+
+  private rackFor(id: PresetId): Rack {
+    let rack = this.racks.get(id);
+    if (!rack) {
+      rack = buildRack(PRESETS[id], this.buses);
+      this.racks.set(id, rack);
+    }
+    return rack;
+  }
+
+  /** Called at the start of a bar when the selected preset differs from the sounding one. */
+  private applyPreset(id: PresetId, time: number) {
+    const preset = PRESETS[id];
     const old = this.rack;
-    old.pad.releaseAll();
-    old.stab?.releaseAll();
-    Object.values(old.leads).forEach((l) => l?.synth.releaseAll());
-    setTimeout(() => old.dispose(), 8000); // let tails ring out
-    this.rack = buildRack(preset, this.buses);
+    old.pad.releaseAll(time);
+    old.stab?.releaseAll(time);
+    Object.values(old.leads).forEach((l) => l?.synth.releaseAll(time));
+    old.acid?.synth.triggerRelease(time);
+    this.rack = this.rackFor(id);
+    this.activePreset = id;
     this.prevVoicing = null;
     this.motif = null;
     this.acid = null;
-    Tone.getTransport().bpm.rampTo(preset.tempo, 1);
-    this.reverbReturn.gain.rampTo(preset.reverb * 1.2, 1);
-    this.delayReturn.gain.rampTo(preset.delay, 1);
-    this.masterFilter.frequency.rampTo(preset.masterCutoff, 1);
+    this.reverbReturn.gain.setValueAtTime(this.reverbReturn.gain.getValueAtTime(time), time);
+    this.reverbReturn.gain.linearRampToValueAtTime(engineStore.get().reverb * 1.2, time + 0.5);
+    this.delayReturn.gain.setValueAtTime(this.delayReturn.gain.getValueAtTime(time), time);
+    this.delayReturn.gain.linearRampToValueAtTime(preset.delay, time + 0.5);
+    this.masterFilter.frequency.setValueAtTime(this.masterFilter.frequency.getValueAtTime(time), time);
+    this.masterFilter.frequency.linearRampToValueAtTime(preset.masterCutoff, time + 0.5);
+    // Mid-song switch: everything plays straight away instead of re-doing the slow build-up.
+    if (this.mode === 'composition' && this.arrangementBar > 0) {
+      const established = Math.max(...LAYERS.map((l) => entryBar(preset, l)));
+      if (this.arrangementBar < established) this.arrangementBar = established;
+    }
   }
 
   setVolume(v: number) {
@@ -356,9 +396,9 @@ class AudioEngine {
     if (this.ready) Tone.getDestination().mute = muted;
   }
 
+  /** The new tempo takes effect on the next bar line (see onBar). */
   setTempo(bpm: number) {
     engineStore.set({ tempo: bpm });
-    if (this.ready) Tone.getTransport().bpm.rampTo(bpm, 0.5);
   }
 
   setReverb(r: number) {
@@ -390,9 +430,17 @@ class AudioEngine {
 
   private onBar(time: number) {
     const s = engineStore.get();
-    const preset = PRESETS[s.preset];
+    // Preset and tempo changes land exactly on the bar line.
+    if (s.preset !== this.activePreset) this.applyPreset(s.preset, time);
+    if (s.tempo !== this.activeTempo) {
+      Tone.getTransport().bpm.setValueAtTime(s.tempo, time);
+      this.activeTempo = s.tempo;
+    }
+    const preset = PRESETS[this.activePreset];
     const energy = s.energy;
-    const six = Tone.Time('16n').toSeconds();
+    // Computed from the tempo of *this* bar (not the transport's current value, which may still be
+    // the previous tempo while this bar is being scheduled ahead of time).
+    const six = 60 / this.activeTempo / 4;
     const barDur = six * 16;
     const at = (step: number) => time + step * six + (step % 2 === 1 ? preset.swing * six * 0.6 : 0);
     const rich = (this.dna?.connectivity ?? 0.5) > 0.2;
@@ -659,7 +707,7 @@ class AudioEngine {
   async playSignature(file: FileInfo) {
     await this.unlock();
     const s = engineStore.get();
-    const preset = PRESETS[s.preset];
+    const preset = PRESETS[this.activePreset ?? s.preset];
     const six = Tone.Time('16n').toSeconds();
     const t0 = Tone.now() + 0.05;
     const groupIdx = this.model?.groupIndex.get(file.group)?.index ?? 0;

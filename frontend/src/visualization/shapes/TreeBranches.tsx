@@ -7,12 +7,13 @@ import { pulses } from '../pulseBus';
 const UP = new THREE.Vector3(0, 1, 0);
 
 /** Trunk and branches of the Code Tree. They grow outward (trunk first) and glow faintly on the beat. */
-export function TreeBranches({ branches }: { branches: Branch[] }) {
-  const material = useMemo(
-    () =>
-      new THREE.MeshStandardMaterial({ color: '#2a2150', emissive: '#a78bfa', emissiveIntensity: 0.12, roughness: 0.85 }),
-    [],
-  );
+/** Shared bark material (kept for the app's lifetime so its shader is compiled only once). */
+let bark: THREE.MeshStandardMaterial | null = null;
+const getBark = () =>
+  (bark ??= new THREE.MeshStandardMaterial({ color: '#2a2150', emissive: '#a78bfa', emissiveIntensity: 0.12, roughness: 0.85 }));
+
+export function TreeBranches({ branches, visible = true }: { branches: Branch[]; visible?: boolean }) {
+  const material = getBark();
   const matRef = useRef(material);
   const groups = useRef(new Map<number, THREE.Group>());
   const born = useRef(0);
@@ -43,7 +44,7 @@ export function TreeBranches({ branches }: { branches: Branch[] }) {
   });
 
   return (
-    <group>
+    <group visible={visible}>
       {items.map(({ b, start, length, quat }, i) => (
         <group
           key={i}
