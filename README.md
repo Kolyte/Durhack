@@ -1,8 +1,8 @@
-# CodeFugue 🎼
+# Sonyx 🎼
 
 **Live codebase-to-symphony & 3D architecture synthesizer — built for DurHack.**
 
-Paste any public GitHub repo URL. CodeFugue turns its directory structure, static complexity metrics and import graph into an interactive real-time 3D WebGL sculpture you can orbit, zoom and click like an instrument, paired with a live, scale-quantized multi-track electronic composition.
+Paste any public GitHub repo URL. Sonyx turns its directory structure, static complexity metrics and import graph into an interactive real-time 3D WebGL sculpture you can orbit, zoom and click like an instrument, paired with a live, scale-quantized multi-track electronic composition.
 
 Analysis events stream over WebSockets into a **Tone.js** engine that composes in **D Dorian** (`D E F G A B C`): chord progressions, voice-led pads and chord-aware melodies, so every codebase sounds musical rather than random.
 
@@ -28,8 +28,13 @@ Analysis events stream over WebSockets into a **Tone.js** engine that composes i
   - Drums alternate between patterns with fills every 8 bars.
   - Techno and house build to a breakdown → riser → drop every 32 bars.
 - **Picture and sound in sync.** A file pulses when its note plays. Directory hubs glow on chord changes and the ground pulses on the kick. When the melody follows an import, a light travels along that cable.
-- **Guided tour.** The camera moves from an overview through each directory to the most connected hub, following the composition, and layers join as it goes. Use `←` `→` to skip sections; dragging the view pauses the tour.
-- **Shortcuts.** `Space` play/pause · `1` `2` `3` switch views · `T` start or pause the tour · `←` `→` move between tour sections · `Esc` deselect. Hovering a shape shows a tooltip. Links like `?repo=owner/name` pre-fill the repo.
+- **Guided tour.** The camera moves from an overview through each directory to the most connected hub, following the composition, and layers join as it goes. A tour card shows which stop you're on, what you're hearing (file count, lead voice, busiest file) and how far through the stop the music is. Use its ‹ › buttons or stop dots, or `←` `→`, to jump between stops.
+  - Dragging, pinching or scrolling the view pauses the tour, but a plain tap doesn't.
+  - Tapping a building to inspect it pauses the tour so the camera stays put.
+  - Pausing the music pauses the tour, and resuming the tour restarts the music.
+  - When you exit, the camera glides back out to the whole scene.
+- **Works on phones.** On small screens the 3D view fills the screen. The top bar shrinks to one line once a repo is loaded, and a bottom bar holds play, the tour and View / Music / Code DNA tabs that open as sheets. The layout respects notches and home-indicator areas, and works in landscape. Touch devices also render at a lower pixel ratio without MSAA to keep the frame rate up.
+- **Shortcuts.** `Space` play/pause · `1` `2` `3` switch views · `T` start or pause the tour · `←` `→` move between tour sections · `Esc` deselect, or exit the tour. Hovering a shape shows a tooltip. Links like `?repo=owner/name` pre-fill the repo.
 - **File inspector.** Click a building to see **what it's for**: an explanation based on naming conventions, its folder, how connected it is, its complexity and its concurrency (`model/explain.ts`; it sits behind a `FileExplainer` interface so an AI explainer such as Gemini can replace it later). It also shows stats and connections, explains how the file shapes the music, and can play the file's musical signature.
 - **Code DNA.** Complexity, connectivity, modularity, concurrency and size, shown as a radar chart, with notes on what was sampled.
 - **Playback dock.** Play/pause, mute, volume, tempo, reverb, energy, instrument toggles and preset selection, all applied live.
@@ -98,33 +103,33 @@ One Docker image (Vite build bundled into the Spring Boot jar) behind Caddy, whi
 2. Prepare it once:
 
    ```bash
-   ssh root@<ip> 'curl -fsSL https://get.docker.com | sh && ufw allow 80/tcp && ufw allow 443/tcp && mkdir -p /opt/codefugue'
+   ssh root@<ip> 'curl -fsSL https://get.docker.com | sh && ufw allow 80/tcp && ufw allow 443/tcp && mkdir -p /opt/sonyx'
    ```
 
 3. Build an amd64 image locally and ship it (the box is too small to build on):
 
    ```bash
-   docker buildx build --platform linux/amd64 -t codefugue-app:amd64 --load .
-   docker save codefugue-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
-   scp deploy/docker-compose.server.yml root@<ip>:/opt/codefugue/docker-compose.yml
-   scp deploy/Caddyfile root@<ip>:/opt/codefugue/Caddyfile
+   docker buildx build --platform linux/amd64 -t sonyx-app:amd64 --load .
+   docker save sonyx-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
+   scp deploy/docker-compose.server.yml root@<ip>:/opt/sonyx/docker-compose.yml
+   scp deploy/Caddyfile root@<ip>:/opt/sonyx/Caddyfile
    ```
 
-4. On the server, create `/opt/codefugue/.env` (mode 600) and start:
+4. On the server, create `/opt/sonyx/.env` (mode 600) and start:
 
    ```bash
    DOMAIN=<ip-with-dashes>.nip.io
    GITHUB_TOKEN=ghp_your_token_here
    ```
 
-   `cd /opt/codefugue && docker compose up -d`, then open `https://<ip-with-dashes>.nip.io`. To update, repeat step 3 and run `docker compose up -d` again.
+   `cd /opt/sonyx && docker compose up -d`, then open `https://<ip-with-dashes>.nip.io`. To update, repeat step 3 and run `docker compose up -d` again.
 
 Local smoke test of the same stack: `DOMAIN=http://localhost docker compose up --build`, then open http://localhost.
 
 ## Project layout
 
 ```
-backend/src/main/java/com/codefugue/backend/compose/
+backend/src/main/java/com/sonyx/backend/compose/
   ComposeEvent.java           sealed event types streamed to the client
   FileNode.java               per-file metrics + role
   GitHubAnalyzerService.java  fetch, sample, classify, metrics, import resolution

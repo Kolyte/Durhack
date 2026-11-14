@@ -1,4 +1,4 @@
-package com.codefugue.backend.compose;
+package com.sonyx.backend.compose;
 
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.TextMessage;
