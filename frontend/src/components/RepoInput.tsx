@@ -93,9 +93,6 @@ export function RepoInput({
         <button className="btn btn--primary" type="submit" disabled={busy}>
           {busy ? 'Composing…' : 'Compose'}
         </button>
-        <a className="btn btn--accent nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
-          🏆<span className="nav-button__label"> Leaderboard</span>
-        </a>
       </form>
       <div className={`status${phase === 'error' ? ' status--error' : ''}`} role="status">
         {status}
@@ -105,6 +102,10 @@ export function RepoInput({
           </div>
         )}
       </div>
+      {/* Page navigation, kept apart from the compose controls (input → Compose → status). */}
+      <a className="btn btn--accent nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
+        🏆<span className="nav-button__label"> Leaderboard</span>
+      </a>
     </header>
   );
 }

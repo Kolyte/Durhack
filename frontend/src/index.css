@@ -1108,6 +1108,8 @@ input[type='range']::-moz-range-thumb {
 .nav-button {
   text-decoration: none;
   flex: none;
+  /* Always the right-most item, also when the bar wraps onto two lines. */
+  margin-left: auto;
 }
 
 .sound-hint {
@@ -1128,5 +1130,26 @@ input[type='range']::-moz-range-thumb {
 @media (max-width: 520px) {
   .nav-button__label {
     display: none;
+  }
+}
+
+/* Phones: the bar stacks (logo row, then the form). Put the Leaderboard on the logo row, top right,
+   instead of letting it drop onto a row of its own under the status line. */
+@media (max-width: 760px), (max-height: 520px) {
+  .topbar:not(.topbar--collapsed) .nav-button {
+    order: 1;
+  }
+
+  .topbar:not(.topbar--collapsed) .topbar__close {
+    order: 2;
+    margin-left: 0;
+  }
+
+  .topbar:not(.topbar--collapsed) .repo-form {
+    order: 3;
+  }
+
+  .topbar:not(.topbar--collapsed) .status {
+    order: 4;
   }
 }
