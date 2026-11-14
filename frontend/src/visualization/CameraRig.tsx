@@ -52,10 +52,13 @@ export function CameraRig({
   onInterrupt: () => void;
 }) {
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   const flyUntil = useRef(0);
+  /** After the tour ends, glide back to the overview until this time (ms). */
+  const returnUntil = useRef(0);
   const tourRef = useRef(tour);
   useEffect(() => {
+    if (tour === 'off' && tourRef.current !== 'off') returnUntil.current = performance.now() + 2200;
     tourRef.current = tour;
   }, [tour]);
 
@@ -64,11 +67,42 @@ export function CameraRig({
     if (!c) return;
     const onStart = () => {
       flyUntil.current = 0;
-      if (tourRef.current === 'running') onInterrupt();
+      returnUntil.current = 0;
     };
     c.addEventListener('start', onStart);
     return () => c.removeEventListener('start', onStart);
-  }, [onInterrupt]);
+  }, []);
+
+  // Only a real drag, pinch or wheel pauses the tour. A plain tap (selecting a building on a phone,
+  // or a click) also fires the controls' "start" event, which used to stop the tour by accident.
+  useEffect(() => {
+    const el = gl.domElement;
+    const down = new Map<number, [number, number]>();
+    const interrupt = () => {
+      if (tourRef.current === 'running') onInterrupt();
+    };
+    const onDown = (e: PointerEvent) => {
+      down.set(e.pointerId, [e.clientX, e.clientY]);
+      if (down.size > 1) interrupt();
+    };
+    const onMove = (e: PointerEvent) => {
+      const p = down.get(e.pointerId);
+      if (p && Math.hypot(e.clientX - p[0], e.clientY - p[1]) > 8) interrupt();
+    };
+    const onUp = (e: PointerEvent) => down.delete(e.pointerId);
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onUp);
+    el.addEventListener('wheel', interrupt, { passive: true });
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+      el.removeEventListener('wheel', interrupt);
+    };
+  }, [gl, onInterrupt]);
 
   // Selecting a file glides the orbit target to it (once), without taking the camera away from the user.
   useEffect(() => {
@@ -94,13 +128,16 @@ export function CameraRig({
       const hub = section?.groupKey ? liveHubPositions.get(section.groupKey) : undefined;
       const focus = playhead.focusFileId ? livePositions.get(playhead.focusFileId) : undefined;
       const a = t * 0.06;
+      // Tall (portrait) screens see less sideways, so close-ups step back to keep the district in frame.
+      const aspect = (camera as THREE.PerspectiveCamera).aspect ?? 1.6;
+      const zoom = Math.min(2, Math.max(1, 1.25 / aspect));
 
       if (!section || section.kind === 'overview' || !hub) {
         desiredTarget.set(...layout.bounds.center);
         desiredPos.copy(framePosition(layout.bounds, layout.mode, camera, a));
       } else if (section.kind === 'directory') {
         const h = layout.hubs.get(section.groupKey!);
-        const r = layout.mode === 'tree' ? 11 : 6 + (h ? Math.max(h.width, h.depth) : 2) * 1.2;
+        const r = (layout.mode === 'tree' ? 11 : 6 + (h ? Math.max(h.width, h.depth) : 2) * 1.2) * zoom;
         desiredTarget.set(...hub);
         if (focus) desiredTarget.lerp(tmp.set(...focus), 0.3);
         // In the tree, orbit on the outside of the canopy (away from the trunk) so the trunk never blocks the view.
@@ -109,11 +146,18 @@ export function CameraRig({
       } else {
         const f = focus ?? hub;
         desiredTarget.set(...f);
-        desiredPos.set(f[0] + Math.sin(a) * 7, f[1] + 4.5, f[2] + Math.cos(a) * 7);
+        desiredPos.set(f[0] + Math.sin(a) * 7 * zoom, f[1] + 4.5 * zoom, f[2] + Math.cos(a) * 7 * zoom);
       }
       const k = 1 - Math.exp(-delta * 0.7);
       camera.position.lerp(desiredPos, k);
       c.target.lerp(desiredTarget, 1 - Math.exp(-delta * 1.1));
+    } else if (performance.now() < returnUntil.current) {
+      // Tour ended: ease back out to the whole scene, keeping the current viewing side (no swing round).
+      const d = VIEW_DIR[layout.mode];
+      const [cx, , cz] = layout.bounds.center;
+      const angle = Math.atan2(camera.position.x - cx, camera.position.z - cz) - Math.atan2(d[0], d[2]);
+      camera.position.lerp(framePosition(layout.bounds, layout.mode, camera, angle), 1 - Math.exp(-delta * 2.2));
+      c.target.lerp(tmp.set(...layout.bounds.center), 1 - Math.exp(-delta * 2.6));
     } else if (selectedId && performance.now() < flyUntil.current) {
       const p = livePositions.get(selectedId);
       if (p) c.target.lerp(tmp.set(...p), 1 - Math.exp(-delta * 3));

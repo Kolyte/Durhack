@@ -7,10 +7,12 @@ import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
 import { RepoInput } from './components/RepoInput';
+import { TourGuide } from './components/TourGuide';
 import { ViewControls } from './components/ViewControls';
 import { computeCodeDna } from './model/codeDna';
 import { buildRepoModel } from './model/repoModel';
 import { useStoreSelector } from './state/store';
+import { COMPACT_QUERY, useMediaQuery } from './state/useMediaQuery';
 import { useComposeStream } from './state/useComposeStream';
 import type { MetricOverlay, ViewMode } from './types';
 import type { TourState } from './visualization/CameraRig';
@@ -24,6 +26,14 @@ export default function App() {
   const [overlay, setOverlay] = useState<MetricOverlay>('complexity');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tour, setTour] = useState<TourState>('off');
+  const compact = useMediaQuery(COMPACT_QUERY);
+  /** Phones: which control sheet is open above the bottom bar. */
+  const [sheet, setSheet] = useState<'view' | 'music' | 'dna' | null>(null);
+  const playing = useStoreSelector(engineStore, (e) => e.playing);
+  const chord = useStoreSelector(engineStore, (e) => e.chord);
+  const sectionTitle = useStoreSelector(engineStore, (e) =>
+    e.mode === 'analysing' ? 'Listening to the analysis…' : (e.sections[e.sectionIndex]?.title ?? ''),
+  );
   // Only re-render App when the active directory changes, not on every bar/chord (that blocked audio).
   const activeGroup = useStoreSelector(engineStore, (e) =>
     e.mode === 'composition' ? (e.sections[e.sectionIndex]?.groupKey ?? null) : null,
@@ -59,6 +69,7 @@ export default function App() {
       composedFor.current = null;
       setSelectedId(null);
       setTour('off');
+      setSheet(null);
       void compose(url, fromGesture);
     },
     [compose],
@@ -102,14 +113,37 @@ export default function App() {
         else audioEngine.restartArrangement();
         audioEngine.start();
         setSelectedId(null);
+        setSheet(null);
         setTour('running');
       } else if (action === 'pause') setTour('paused');
-      else if (action === 'resume') setTour('running');
-      else setTour('off');
+      else if (action === 'resume') {
+        // The tour follows the music, so resuming it also restarts the music if it was paused.
+        await audioEngine.unlock();
+        audioEngine.start();
+        setSelectedId(null);
+        setTour('running');
+      } else setTour('off');
     },
     [model, dna],
   );
   const onTourInterrupt = useCallback(() => setTour((t) => (t === 'running' ? 'paused' : t)), []);
+
+  // Pausing the music freezes the tour on its current stop, so show the tour as paused too.
+  useEffect(() => {
+    const unsubscribe = engineStore.subscribe(() => {
+      if (!engineStore.get().playing) setTour((t) => (t === 'running' ? 'paused' : t));
+    });
+    return () => void unsubscribe();
+  }, []);
+
+  // Inspecting a building mid-tour pauses the tour, so the camera doesn't fly away from it.
+  const onSelect = useCallback((id: string | null) => {
+    setSelectedId(id);
+    if (id) {
+      setTour((t) => (t === 'running' ? 'paused' : t));
+      setSheet(null);
+    }
+  }, []);
   const onHover = useCallback((id: string | null, x: number, y: number) => hoverStore.set({ id, x, y }), []);
 
   // Keyboard shortcuts: Space play/pause · 1/2/3 views · T tour · ←/→ tour sections · Esc deselect.
@@ -128,11 +162,14 @@ export default function App() {
         else onTour(tour === 'running' ? 'pause' : 'resume');
       } else if (e.key === 'ArrowRight' && tour !== 'off') audioEngine.jumpToSection(engineStore.get().sectionIndex + 1);
       else if (e.key === 'ArrowLeft' && tour !== 'off') audioEngine.jumpToSection(engineStore.get().sectionIndex - 1);
-      else if (e.key === 'Escape') setSelectedId(null);
+      else if (e.key === 'Escape') {
+        if (selectedId) setSelectedId(null);
+        else if (tour !== 'off') void onTour('exit');
+      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [model.files.size, tour, onTour]);
+  }, [model.files.size, tour, onTour, selectedId]);
 
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const analysed = nodes.filter((n) => n.analyzed).length;
@@ -149,7 +186,7 @@ export default function App() {
           selectedId={selectedId}
           activeGroup={activeGroup}
           tour={tour}
-          onSelect={setSelectedId}
+          onSelect={onSelect}
           onHover={onHover}
           onTourInterrupt={onTourInterrupt}
           cityPlan={cityLayout.city}
@@ -160,7 +197,7 @@ export default function App() {
             Hear your code<span className="hero__accent">.</span>
           </h1>
           <p>
-            CodeFugue turns any public GitHub repository into a 3D architecture you can explore and an ambient
+            Sonyx turns any public GitHub repository into a 3D architecture you can explore and an ambient
             composition generated from its structure: directories become instruments, imports become melodies,
             concurrency becomes rhythm.
           </p>
@@ -176,15 +213,29 @@ export default function App() {
         </div>
       )}
 
-      <RepoInput phase={phase} status={status} progress={nodes.length ? analysed / nodes.length : null} onCompose={onCompose} />
+      <RepoInput
+        phase={phase}
+        status={status}
+        progress={nodes.length ? analysed / nodes.length : null}
+        onCompose={onCompose}
+        collapsible={compact && hasRepo}
+        repoName={meta?.repoName}
+      />
 
+      {/* One FileInspector for both layouts (on phones the CSS turns it into a bottom sheet). */}
       {hasRepo && (
         <>
-          <MetricsPanel dna={dna} meta={meta} />
+          {!compact && <MetricsPanel dna={dna} meta={meta} />}
           <HoverTooltip model={model} />
           {selected && (
             <FileInspector file={selected} model={model} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />
           )}
+        </>
+      )}
+
+      {hasRepo && !compact && (
+        <>
+          {!selected && <TourGuide tour={tour} onTour={onTour} />}
           <div className="bottom">
             <ViewControls
               mode={mode}
@@ -197,6 +248,80 @@ export default function App() {
             />
             <PlaybackControls canPlay={hasRepo} />
           </div>
+        </>
+      )}
+
+      {hasRepo && compact && (
+        <>
+          {selected ? null : sheet ? (
+            <div className="sheet panel" role="dialog" aria-label={`${sheet} controls`}>
+              <button className="btn btn--icon sheet__close" onClick={() => setSheet(null)} aria-label="Close">
+                ✕
+              </button>
+              {sheet === 'view' && (
+                <ViewControls
+                  embedded
+                  mode={mode}
+                  overlay={overlay}
+                  tour={tour}
+                  canTour={phase === 'ready'}
+                  onMode={setMode}
+                  onOverlay={setOverlay}
+                  onTour={onTour}
+                />
+              )}
+              {sheet === 'music' && <PlaybackControls embedded canPlay={hasRepo} />}
+              {sheet === 'dna' && <MetricsPanel embedded dna={dna} meta={meta} />}
+            </div>
+          ) : (
+            <TourGuide tour={tour} onTour={onTour} />
+          )}
+          <nav className="mobile-bar panel" aria-label="Controls">
+            <div className="mobile-bar__row">
+              <button
+                className="btn btn--round"
+                onClick={() => audioEngine.togglePlay()}
+                aria-label={playing ? 'Pause music' : 'Play music'}
+              >
+                {playing ? '❚❚' : '▶'}
+              </button>
+              <div className="now-playing">
+                <span className="now-playing__chord">{chord || '—'}</span>
+                <span className="now-playing__section">{sectionTitle || 'Idle'}</span>
+              </div>
+              {tour === 'off' ? (
+                <button className="btn btn--accent" disabled={phase !== 'ready'} onClick={() => onTour('start')}>
+                  ▶ Tour
+                </button>
+              ) : (
+                <button className="btn" onClick={() => onTour(tour === 'running' ? 'pause' : 'resume')}>
+                  {tour === 'running' ? 'Pause tour' : 'Resume tour'}
+                </button>
+              )}
+            </div>
+            <div className="segmented mobile-bar__tabs" role="tablist" aria-label="Panels">
+              {(
+                [
+                  ['view', 'View'],
+                  ['music', 'Music'],
+                  ['dna', 'Code DNA'],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  aria-selected={sheet === id}
+                  className={`segmented__item${sheet === id ? ' is-on' : ''}`}
+                  onClick={() => {
+                    setSelectedId(null);
+                    setSheet(sheet === id ? null : id);
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </nav>
         </>
       )}
     </div>

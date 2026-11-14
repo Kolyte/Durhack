@@ -837,6 +837,353 @@ input[type='range']::-moz-range-thumb {
   }
 }
 
+/* ───────── guided tour ───────── */
+
+.tour-guide {
+  position: absolute;
+  top: 92px;
+  right: 16px;
+  z-index: 6;
+  width: 360px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: caption-pulse 0.35s ease both;
+}
+
+.tour-guide__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.tour-guide__paused {
+  color: var(--muted);
+}
+
+.tour-guide__title {
+  margin: 0;
+  font-size: 17px;
+  word-break: break-all;
+}
+
+.tour-guide__progress {
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.15);
+  overflow: hidden;
+}
+
+.tour-guide__progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--lavender), var(--pink));
+  transition: width 0.6s linear;
+}
+
+.tour-guide__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tour-guide__dots {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tour-dot {
+  width: 16px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+
+.tour-dot::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(148, 163, 184, 0.35);
+  transition: background 0.2s, transform 0.2s;
+}
+
+.tour-dot--special::after {
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+.tour-dot.is-on::after {
+  background: var(--pink);
+  box-shadow: 0 0 8px var(--pink);
+  transform: scale(1.35);
+}
+
+.tour-dot--special.is-on::after {
+  transform: rotate(45deg) scale(1.35);
+}
+
+.btn--nav {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* ───────── phones (portrait and landscape) ─────────
+ * Keep in sync with COMPACT_QUERY in src/state/useMediaQuery.ts. The 3D view gets the whole screen;
+ * controls live in a bottom bar, and each panel opens as a sheet above it. */
+
+@media (max-width: 760px), (max-height: 520px) {
+  :root {
+    --edge: 8px;
+    --safe-l: max(var(--edge), env(safe-area-inset-left));
+    --safe-r: max(var(--edge), env(safe-area-inset-right));
+    --safe-t: max(var(--edge), env(safe-area-inset-top));
+    --safe-b: max(var(--edge), env(safe-area-inset-bottom));
+    --bar-h: 112px;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
+
+  button,
+  .chip,
+  .segmented__item {
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Blurring the live WebGL canvas behind every panel is expensive on phone GPUs. */
+  .panel {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(11, 18, 38, 0.92);
+  }
+
+  .topbar {
+    top: var(--safe-t);
+    left: var(--safe-l);
+    right: var(--safe-r);
+    padding: 8px 10px;
+    gap: 8px 10px;
+  }
+
+  .topbar__close {
+    margin-left: auto;
+  }
+
+  .repo-form {
+    flex-basis: 100%;
+  }
+
+  /* 16px stops iOS from zooming the page when the field is focused. */
+  .input {
+    font-size: 16px;
+    padding: 8px 10px;
+  }
+
+  .status {
+    flex-basis: 100%;
+  }
+
+  .topbar--collapsed {
+    flex-wrap: nowrap;
+  }
+
+  .topbar__repo {
+    flex: 1;
+    min-width: 0;
+    font: 12px var(--mono);
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chip {
+    min-height: 32px;
+    padding: 5px 12px;
+  }
+
+  .segmented__item {
+    padding: 7px 11px;
+  }
+
+  .hero {
+    padding: 190px 20px 24px;
+  }
+
+  .hero p {
+    font-size: 14px;
+  }
+
+  .hub-label {
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .mobile-bar {
+    position: absolute;
+    left: var(--safe-l);
+    right: var(--safe-r);
+    bottom: var(--safe-b);
+    z-index: 15;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .mobile-bar__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .mobile-bar .btn--round {
+    width: 44px;
+    height: 44px;
+    flex: none;
+  }
+
+  .mobile-bar .btn:not(.btn--round) {
+    min-height: 40px;
+  }
+
+  .mobile-bar .now-playing {
+    min-width: 0;
+  }
+
+  .mobile-bar__tabs {
+    display: flex;
+  }
+
+  .mobile-bar__tabs .segmented__item {
+    flex: 1;
+    padding: 8px 6px;
+    font-size: 13px;
+  }
+
+  /* Sheets, the tour guide and the file inspector all sit just above the bottom bar. */
+  .sheet,
+  .tour-guide,
+  .inspector {
+    position: absolute;
+    left: var(--safe-l);
+    right: var(--safe-r);
+    top: auto;
+    bottom: calc(var(--safe-b) + var(--bar-h) + 8px);
+    width: auto;
+    z-index: 14;
+  }
+
+  .sheet,
+  .inspector {
+    max-height: calc(100% - var(--safe-b) - var(--bar-h) - 76px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 14px;
+  }
+
+  .sheet {
+    animation: sheet-in 0.2s ease both;
+  }
+
+  .sheet__close {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    z-index: 1;
+  }
+
+  .sheet .view-controls,
+  .sheet .dock {
+    padding: 0;
+  }
+
+  .sheet .dock__row--sliders .slider {
+    min-width: 40%;
+  }
+
+  .dna--embedded {
+    position: static;
+    width: auto;
+    max-height: none;
+    padding: 0;
+  }
+
+  .tour-guide {
+    padding: 10px 12px;
+  }
+
+  .tour-guide__title {
+    font-size: 15px;
+  }
+
+  .btn--nav {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Phones held sideways: very little height, so the bar becomes a single row. */
+@media (max-height: 520px) {
+  :root {
+    --bar-h: 60px;
+  }
+
+  .mobile-bar {
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .mobile-bar__row {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .mobile-bar__tabs {
+    flex: 0 0 auto;
+  }
+
+  .sheet,
+  .tour-guide,
+  .inspector {
+    right: auto;
+    width: min(460px, calc(100% - var(--safe-l) - var(--safe-r)));
+  }
+
+  .hero {
+    padding-top: 150px;
+  }
+
+  .hero h1 {
+    font-size: 32px;
+  }
+}
+
+@keyframes sheet-in {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     transition: none !important;

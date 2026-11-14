@@ -3,7 +3,7 @@ import type { RepoMeta } from '../types';
 
 export interface RankingEntry {
   repoName: string;
-  /** Overall CodeFugue score, 0–100 (mean of the five Code DNA axes). */
+  /** Overall Sonyx score, 0–100 (mean of the five Code DNA axes). */
   score: number;
   complexity: number;
   connectivity: number;

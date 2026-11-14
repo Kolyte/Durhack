@@ -32,7 +32,7 @@ export function useComposeStream() {
     setEdges([]);
     setMeta(null);
     setPhase('connecting');
-    setStatus('Connecting to the CodeFugue engine…');
+    setStatus('Connecting to the Sonyx engine…');
     if (unlocked) await unlocked;
 
     const ws = new WebSocket(WS_URL);

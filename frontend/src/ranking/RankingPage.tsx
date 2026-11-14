@@ -83,7 +83,7 @@ export function RankingPage() {
           <span className="brand__mark" aria-hidden>
             ◈
           </span>
-          CodeFugue
+          Sonyx
         </a>
         <nav className="ranking__nav">
           <a className="chip" href="/">
@@ -102,7 +102,7 @@ export function RankingPage() {
             Leaderboard<span className="hero__accent">.</span>
           </h1>
           <p>
-            Every repository composed on CodeFugue, ranked by its Code DNA. The score is the average of the five axes
+            Every repository composed on Sonyx, ranked by its Code DNA. The score is the average of the five axes
             (0–100). Click a repository to open it in the composer.
           </p>
         </div>
