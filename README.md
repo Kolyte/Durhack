@@ -78,6 +78,31 @@ Event shapes: `backend/.../compose/ComposeEvent.java` ⇄ `frontend/src/types.ts
 
 Database settings (env vars): `DATABASE_URL` — paste Tiger Data's connection string as-is (`postgres://tsdbadmin:<password>@<host>:<port>/tsdb?sslmode=require`; credentials are taken from it), or use a `jdbc:postgresql://…` URL together with `DATABASE_USER` / `DATABASE_PASSWORD`.
 
+## Gemini explanations (optional)
+
+The file inspector can ask Google Gemini to explain a file. Click a building, then press **✨ Explain with Gemini**.
+
+How it works:
+- The browser calls our backend (`POST /api/explain`).
+- The backend downloads the file from GitHub and sends it to Gemini with the API key.
+- The answer replaces the built-in explanation. If Gemini isn't configured, is over quota or fails, the built-in explanation stays.
+- **The key never reaches the browser.**
+
+Setup (locally):
+1. Create a free API key at [Google AI Studio](https://aistudio.google.com) → API keys. Use a project **without billing** so it stays on the free tier.
+2. Copy `backend/.env.example` to `backend/.env` and paste your key after `GEMINI_API_KEY=`. That file is git-ignored, and the backend reads it on every start, so there's nothing to export in each terminal.
+3. Optional: `GEMINI_MODEL=...` in the same file (default `gemini-3.5-flash-lite`). Use any model listed in AI Studio, ideally a Flash or Lite one with a generous free limit.
+4. Start the backend. It logs `Gemini explanations enabled (model …)` or tells you the key is missing.
+
+Setup (server): add `GEMINI_API_KEY=...` (and optionally `GEMINI_MODEL=...`) to `/opt/sonyx/.env`, next to the compose file, then run `docker compose up -d`.
+
+Protecting the free quota:
+- Gemini is only called when you press the button.
+- Answers are cached per file on the server and in the browser.
+- The server allows at most `GEMINI_MAX_PER_MINUTE` (default 15) requests per minute.
+
+`GET /api/explain/status` shows whether Gemini is enabled and which model is used.
+
 ## Running locally
 
 Quickest — everything in Docker (TimescaleDB + app; no Java or Postgres install needed):
@@ -142,6 +167,8 @@ One Docker image (Vite build bundled into the Spring Boot jar) behind Caddy, whi
    GITHUB_TOKEN=ghp_your_token_here
    # Leaderboard database (Tiger Data service)
    DATABASE_URL=postgres://tsdbadmin:<password>@<host>:<port>/tsdb?sslmode=require
+   # Optional: Gemini file explanations (free key from aistudio.google.com)
+   GEMINI_API_KEY=your_key_here
    ```
 
    `cd /opt/sonyx && docker compose up -d`, then open `https://<ip-with-dashes>.nip.io`. To update, repeat step 3 and run `docker compose up -d` again.
@@ -179,6 +206,5 @@ frontend/src/
 Tests: `cd backend && ./mvnw test` · `cd frontend && npm test` (composer/model) · `npm run lint` · `npm run build`
 
 ## Ideas / next steps
-- Gemini explanations in the file inspector, called through the backend so the API key stays private
 - Record/export the performance (Tone.Recorder → WAV)
 - Smarter import resolution (relative path resolution, tsconfig paths, Java packages)

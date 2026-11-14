@@ -227,7 +227,7 @@ export default function App() {
           {!compact && <MetricsPanel dna={dna} meta={meta} />}
           <HoverTooltip model={model} />
           {selected && (
-            <FileInspector file={selected} model={model} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />
+            <FileInspector file={selected} model={model} meta={meta} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />
           )}
         </>
       )}
