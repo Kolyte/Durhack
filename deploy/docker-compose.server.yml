@@ -1,0 +1,35 @@
+# Server stack for small instances: runs a prebuilt image instead of building on the box.
+# Build & ship from a dev machine:
+#   docker buildx build --platform linux/amd64 -t codefugue-app:amd64 --load .
+#   docker save codefugue-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
+# Then on the server (in the folder holding this file as docker-compose.yml, Caddyfile and .env):
+#   docker compose up -d
+services:
+  app:
+    image: codefugue-app:amd64
+    restart: unless-stopped
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60
+    mem_limit: 700m
+    expose:
+      - "8080"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env, e.g. 203-0-113-10.sslip.io}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

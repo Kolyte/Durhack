@@ -85,6 +85,41 @@ npm run dev
 Open http://localhost:5173, then click **Compose** or a preset. Audio starts on that click (browsers block autoplay).
 
 
+The frontend connects to `/ws/compose` on its own host; in dev, Vite proxies that to `localhost:8080`. Set `VITE_WS_URL` to override.
+
+## Deploying on Vultr
+
+One Docker image (Vite build bundled into the Spring Boot jar) behind Caddy, which gets a Let's Encrypt cert for a free `nip.io` hostname — so the demo is served over `https://` / `wss://`.
+
+> `sslip.io` is blocked by the Durham University network's DNS; `nip.io` resolves fine there.
+
+1. Create a Vultr Cloud Compute instance (Ubuntu 24.04 LTS, `vc2-1c-1gb` is plenty) with your SSH key.
+2. Prepare it once:
+
+   ```bash
+   ssh root@<ip> 'curl -fsSL https://get.docker.com | sh && ufw allow 80/tcp && ufw allow 443/tcp && mkdir -p /opt/codefugue'
+   ```
+
+3. Build an amd64 image locally and ship it (the box is too small to build on):
+
+   ```bash
+   docker buildx build --platform linux/amd64 -t codefugue-app:amd64 --load .
+   docker save codefugue-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
+   scp deploy/docker-compose.server.yml root@<ip>:/opt/codefugue/docker-compose.yml
+   scp deploy/Caddyfile root@<ip>:/opt/codefugue/Caddyfile
+   ```
+
+4. On the server, create `/opt/codefugue/.env` (mode 600) and start:
+
+   ```bash
+   DOMAIN=<ip-with-dashes>.nip.io
+   GITHUB_TOKEN=ghp_your_token_here
+   ```
+
+   `cd /opt/codefugue && docker compose up -d`, then open `https://<ip-with-dashes>.nip.io`. To update, repeat step 3 and run `docker compose up -d` again.
+
+Local smoke test of the same stack: `DOMAIN=http://localhost docker compose up --build`, then open http://localhost.
+
 ## Project layout
 
 ```
