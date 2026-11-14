@@ -10,7 +10,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.sonyx</groupId>
+    <groupId>com.codefugue</groupId>
     <artifactId>backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>sonyx-backend</name>

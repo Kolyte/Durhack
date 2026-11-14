@@ -1,4 +1,4 @@
-package com.sonyx.backend.compose;
+package com.codefugue.backend.compose;
 
 import org.junit.jupiter.api.Test;
 
