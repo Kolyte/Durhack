@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { submitRanking } from './api/rankings';
 import { audioEngine, engineStore } from './audio/AudioEngine';
 import { FileInspector } from './components/FileInspector';
 import { HoverTooltip } from './components/HoverTooltip';
@@ -46,6 +47,7 @@ export default function App() {
     if (phase === 'ready' && meta && composedFor.current !== meta.repoName && model.files.size > 0) {
       composedFor.current = meta.repoName;
       audioEngine.loadComposition(model, dna);
+      void submitRanking(meta, dna);
     }
   }, [phase, meta, model, dna]);
 
@@ -99,6 +101,10 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [model.files.size, tour, onTour]);
 
+  // Opened from a leaderboard / shared link (?repo=owner/name): offer a one-click start.
+  // Audio needs a user gesture, so the composition can't start by itself on page load.
+  const [linkedRepo] = useState(() => new URLSearchParams(window.location.search).get('repo'));
+
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const analysed = nodes.filter((n) => n.analyzed).length;
   const hasRepo = model.files.size > 0;
@@ -128,7 +134,16 @@ export default function App() {
             composition generated from its structure: directories become instruments, imports become melodies,
             concurrency becomes rhythm.
           </p>
-          <p className="hero__hint">Pick a preset above or paste a repo URL, then press Compose. Sound on 🎧</p>
+          {linkedRepo && phase === 'idle' ? (
+            <button
+              className="btn btn--primary hero__cta"
+              onClick={() => onCompose(linkedRepo.startsWith('http') ? linkedRepo : `https://github.com/${linkedRepo}`)}
+            >
+              ▶ Compose {linkedRepo.replace(/^https?:\/\/(www\.)?github\.com\//, '')}
+            </button>
+          ) : (
+            <p className="hero__hint">Pick a preset above or paste a repo URL, then press Compose. Sound on 🎧</p>
+          )}
         </div>
       )}
 

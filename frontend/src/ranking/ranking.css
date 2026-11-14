@@ -1,0 +1,278 @@
+/* Leaderboard page. Reuses the tokens and .panel / .chip / .topbar styles from index.css. */
+
+html,
+body,
+#root {
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
+}
+
+body {
+  background:
+    radial-gradient(ellipse at 15% 0%, rgba(45, 212, 191, 0.1), transparent 45%),
+    radial-gradient(ellipse at 90% 20%, rgba(167, 139, 250, 0.12), transparent 50%),
+    var(--bg);
+  background-attachment: fixed;
+}
+
+a {
+  color: var(--teal);
+}
+
+.ranking {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.topbar--static {
+  position: sticky;
+  top: 16px;
+  left: auto;
+  right: auto;
+}
+
+.brand--link {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.ranking__nav {
+  flex: 1;
+  display: flex;
+  gap: 6px;
+}
+
+.ranking__nav .chip,
+.nav-chip {
+  text-decoration: none;
+}
+
+/* live indicator */
+
+.live {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.live__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+
+.live--on {
+  color: var(--teal);
+}
+
+.live--on .live__dot {
+  background: var(--teal);
+  box-shadow: 0 0 0 0 rgba(45, 212, 191, 0.6);
+  animation: live-pulse 2s infinite;
+}
+
+@keyframes live-pulse {
+  70% {
+    box-shadow: 0 0 0 8px rgba(45, 212, 191, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 212, 191, 0);
+  }
+}
+
+/* intro + sort */
+
+.ranking__main {
+  padding-top: 40px;
+}
+
+.ranking__intro h1 {
+  margin: 0 0 8px;
+  font-size: clamp(32px, 5vw, 48px);
+  letter-spacing: -0.03em;
+}
+
+.ranking__intro p {
+  margin: 0;
+  max-width: 640px;
+  color: var(--muted);
+}
+
+.ranking__sorts {
+  margin: 24px 0 14px;
+}
+
+.ranking__notice {
+  padding: 18px;
+  color: var(--muted);
+}
+
+.ranking__notice--error {
+  color: var(--pink);
+}
+
+/* rows */
+
+.ranking__list {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rank-row {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) minmax(220px, 300px) 72px;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  transition: border-color 0.4s, background 0.4s;
+}
+
+.rank-row--flash {
+  border-color: var(--border-strong);
+  background: rgba(45, 212, 191, 0.1);
+}
+
+.rank-row__pos {
+  font: 700 18px var(--mono);
+  color: var(--faint);
+  text-align: center;
+}
+
+.rank-row__pos--1 {
+  color: #fbbf24;
+}
+
+.rank-row__pos--2 {
+  color: #cbd5e1;
+}
+
+.rank-row__pos--3 {
+  color: #d97706;
+}
+
+.rank-row__repo {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rank-row__link {
+  font: 600 14px var(--mono);
+  color: var(--text);
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rank-row__link:hover {
+  color: var(--teal);
+  text-decoration: underline;
+}
+
+.rank-row__meta {
+  font-size: 12px;
+  color: var(--faint);
+}
+
+.rank-row__axes {
+  display: grid;
+  gap: 3px;
+}
+
+.axis {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.axis--active {
+  color: var(--text);
+}
+
+.axis__track {
+  height: 4px;
+  border-radius: 4px;
+  background: rgba(148, 163, 184, 0.14);
+  overflow: hidden;
+}
+
+.axis__bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, var(--teal), var(--lavender));
+}
+
+.axis__bar--concurrency,
+.axis__bar--complexity {
+  background: linear-gradient(90deg, var(--lavender), var(--pink));
+}
+
+.rank-row__score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.rank-row__score-value {
+  font: 700 22px var(--mono);
+  background: linear-gradient(135deg, var(--teal), var(--lavender));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.rank-row__score-label {
+  font-size: 10px;
+  color: var(--faint);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+@media (max-width: 700px) {
+  .rank-row {
+    grid-template-columns: 32px minmax(0, 1fr) 60px;
+    grid-template-areas:
+      'pos repo score'
+      'axes axes axes';
+    gap: 10px 12px;
+  }
+
+  .rank-row__pos {
+    grid-area: pos;
+  }
+
+  .rank-row__repo {
+    grid-area: repo;
+  }
+
+  .rank-row__score {
+    grid-area: score;
+  }
+
+  .rank-row__axes {
+    grid-area: axes;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .live--on .live__dot {
+    animation: none;
+  }
+}

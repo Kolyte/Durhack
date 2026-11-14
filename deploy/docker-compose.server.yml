@@ -10,6 +10,10 @@ services:
     restart: unless-stopped
     environment:
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      # Ranking database (Tiger Data). Without it the composer works and the leaderboard reports it is offline.
+      DATABASE_URL: ${DATABASE_URL:-jdbc:postgresql://localhost:5432/codefugue}
+      DATABASE_USER: ${DATABASE_USER:-}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD:-}
       JAVA_TOOL_OPTIONS: -XX:MaxRAMPercentage=60
     mem_limit: 700m
     expose:
