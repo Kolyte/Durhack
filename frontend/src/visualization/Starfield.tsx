@@ -24,7 +24,7 @@ const vertexShader = /* glsl */ `
   void main() {
     vColor = aColor;
     // Each star twinkles at its own pace; most only a little.
-    vTwinkle = 0.7 + 0.3 * sin(uTime * (0.6 + fract(aPhase * 7.13) * 1.8) + aPhase * 6.2831);
+    vTwinkle = 0.8 + 0.2 * sin(uTime * (0.6 + fract(aPhase * 7.13) * 1.8) + aPhase * 6.2831);
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     gl_PointSize = aSize * uPixelRatio;
@@ -88,11 +88,11 @@ function buildStars(count: number) {
 
     // Brightness skewed low: a sky full of faint stars and only a handful of bright ones.
     const r = rng();
-    const brightness = 0.3 + 0.7 * r * r * r;
+    const brightness = 0.45 + 0.55 * r * r * r;
     c.copy(TINTS[rng() < 0.7 ? 0 : 1 + Math.floor(rng() * 3)]).multiplyScalar(brightness);
     colors.set([c.r, c.g, c.b], i * 3);
 
-    sizes[i] = 0.9 + r * r * r * r * 2.6; // ~0.9 px for most, up to ~3.5 px for the brightest
+    sizes[i] = 1.1 + r * r * r * r * 2.9; // ~1.1 px for most, up to ~4 px for the brightest
     phases[i] = rng();
   }
   return { positions, colors, sizes, phases };
