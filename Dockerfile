@@ -1,7 +1,7 @@
 # Single image: Vite-built frontend served as static files by the Spring Boot backend.
 
 # 1) Frontend
-FROM node:24-alpine AS frontend
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
 WORKDIR /app
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
@@ -9,7 +9,7 @@ COPY frontend/ ./
 RUN npm run build
 
 # 2) Backend (+ bundled frontend)
-FROM eclipse-temurin:21-jdk AS backend
+FROM --platform=$BUILDPLATFORM eclipse-temurin:21-jdk AS backend
 WORKDIR /app
 COPY backend/.mvn .mvn
 COPY backend/mvnw backend/pom.xml ./
