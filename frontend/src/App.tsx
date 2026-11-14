@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { submitRanking } from './api/rankings';
 import { audioEngine, engineStore } from './audio/AudioEngine';
 import { FileInspector } from './components/FileInspector';
 import { HoverTooltip } from './components/HoverTooltip';
@@ -59,19 +60,50 @@ export default function App() {
     if (phase === 'ready' && meta && composedFor.current !== meta.repoName && model.files.size > 0) {
       composedFor.current = meta.repoName;
       audioEngine.loadComposition(model, dna);
+      void submitRanking(meta, dna);
     }
   }, [phase, meta, model, dna]);
 
   const onCompose = useCallback(
-    (url: string) => {
+    (url: string, fromGesture = true) => {
       composedFor.current = null;
       setSelectedId(null);
       setTour('off');
       setSheet(null);
-      void compose(url);
+      void compose(url, fromGesture);
     },
     [compose],
   );
+
+  // Opened from the leaderboard or a shared link (?repo=owner/name): compose straight away.
+  // Browsers only allow sound after a user gesture, so until the first click we show a hint
+  // and the music starts on that click.
+  const [needsSound, setNeedsSound] = useState(false);
+  const autoComposed = useRef(false);
+  useEffect(() => {
+    const repo = new URLSearchParams(window.location.search).get('repo');
+    if (!repo || autoComposed.current) return;
+    autoComposed.current = true;
+    onCompose(repo.startsWith('http') ? repo : `https://github.com/${repo}`, false);
+    // Some browsers allow audio here (e.g. after interacting with the site); only hint if they don't.
+    audioEngine.unlock().then(() => setNeedsSound(false), () => {});
+    setTimeout(() => setNeedsSound(!engineStore.get().ready), 400);
+  }, [onCompose]);
+
+  useEffect(() => {
+    if (!needsSound) return;
+    const enable = async () => {
+      await audioEngine.unlock();
+      if (engineStore.get().mode === 'composition') audioEngine.start();
+      setNeedsSound(false);
+    };
+    window.addEventListener('pointerdown', enable, { once: true });
+    window.addEventListener('keydown', enable, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', enable);
+      window.removeEventListener('keydown', enable);
+    };
+  }, [needsSound]);
 
   const onTour = useCallback(
     async (action: 'start' | 'pause' | 'resume' | 'exit') => {
@@ -174,6 +206,12 @@ export default function App() {
       )}
 
       {hasRepo && <HubLabelLayer groups={model.groups} activeKey={activeGroup ?? selected?.group ?? null} />}
+
+      {needsSound && (
+        <div className="sound-hint panel" role="status">
+          🔊 Click anywhere to turn on the sound
+        </div>
+      )}
 
       <RepoInput
         phase={phase}

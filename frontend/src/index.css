@@ -1200,3 +1200,24 @@ input[type='range']::-moz-range-thumb {
     transition: none !important;
   }
 }
+
+/* ───────── leaderboard button / sound hint ───────── */
+
+.nav-button {
+  text-decoration: none;
+  flex: none;
+}
+
+.sound-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 15;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: var(--text);
+  border-color: var(--border-strong);
+  pointer-events: none;
+  white-space: nowrap;
+}

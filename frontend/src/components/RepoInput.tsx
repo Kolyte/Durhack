@@ -55,6 +55,9 @@ export function RepoInput({
             </div>
           )}
         </div>
+        <a className="chip nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
+          🏆
+        </a>
         <button className="chip" onClick={() => setExpanded(true)} aria-label="Change repository">
           Change
         </button>
@@ -117,6 +120,9 @@ export function RepoInput({
           </div>
         )}
       </div>
+      <a className="btn btn--accent nav-button" href="/ranking.html">
+        🏆 Leaderboard
+      </a>
     </header>
   );
 }
