@@ -842,3 +842,17 @@ input[type='range']::-moz-range-thumb {
     transition: none !important;
   }
 }
+
+/* ───────── links styled as chips / hero call to action ───────── */
+
+.nav-chip {
+  text-decoration: none;
+}
+
+.hero__cta {
+  margin-top: 18px;
+  padding: 12px 22px;
+  font-size: 15px;
+  border-radius: 12px;
+  cursor: pointer;
+}

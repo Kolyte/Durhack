@@ -1,0 +1,39 @@
+# Local development: TimescaleDB (same engine as Tiger Data) + the app, no Java/Postgres install needed.
+#   docker compose -f docker-compose.dev.yml up --build
+#   → composer http://localhost:8080 · leaderboard http://localhost:8080/ranking.html
+# For hot reload, also run `npm run dev` in frontend/ and open http://localhost:5173 (it proxies /ws and /api here).
+# GITHUB_TOKEN is read from ./.env if present.
+services:
+  db:
+    image: timescale/timescaledb:latest-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: codefugue
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d codefugue"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      DATABASE_URL: jdbc:postgresql://db:5432/codefugue
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+    ports:
+      - "8080:8080"
+
+volumes:
+  db_data:
