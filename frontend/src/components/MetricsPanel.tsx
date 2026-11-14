@@ -44,10 +44,10 @@ function Radar({ dna }: { dna: CodeDna }) {
   );
 }
 
-export function MetricsPanel({ dna, meta }: { dna: CodeDna; meta: RepoMeta | null }) {
+export function MetricsPanel({ dna, meta, embedded = false }: { dna: CodeDna; meta: RepoMeta | null; embedded?: boolean }) {
   const [open, setOpen] = useState(true);
   return (
-    <aside className={`dna panel${open ? '' : ' is-collapsed'}`} aria-label="Code DNA">
+    <aside className={`dna${embedded ? ' dna--embedded' : ' panel'}${open ? '' : ' is-collapsed'}`} aria-label="Code DNA">
       <button className="panel__head panel__head--button" onClick={() => setOpen(!open)} aria-expanded={open}>
         <div>
           <div className="eyebrow">Code DNA</div>

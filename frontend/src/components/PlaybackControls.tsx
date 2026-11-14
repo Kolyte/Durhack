@@ -31,12 +31,12 @@ function Slider({
   );
 }
 
-export function PlaybackControls({ canPlay }: { canPlay: boolean }) {
+export function PlaybackControls({ canPlay, embedded = false }: { canPlay: boolean; embedded?: boolean }) {
   const s = useStore(engineStore);
   const section = s.sections[s.sectionIndex];
 
   return (
-    <section className="dock panel" aria-label="Music controls">
+    <section className={`dock${embedded ? '' : ' panel'}`} aria-label="Music controls">
       <div className="dock__row">
         <button
           className="btn btn--round"

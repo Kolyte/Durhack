@@ -13,8 +13,8 @@
     <groupId>com.codefugue</groupId>
     <artifactId>backend</artifactId>
     <version>0.0.1-SNAPSHOT</version>
-    <name>codefugue-backend</name>
-    <description>CodeFugue: streams GitHub repo analysis over WebSockets</description>
+    <name>sonyx-backend</name>
+    <description>Sonyx: streams GitHub repo analysis over WebSockets</description>
 
     <properties>
         <java.version>21</java.version>

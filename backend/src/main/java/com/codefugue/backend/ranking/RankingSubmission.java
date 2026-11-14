@@ -31,7 +31,7 @@ public record RankingSubmission(
                 clamp(modularity), clamp(concurrency), clamp(size), Math.clamp(analyzedFiles, 0, 10_000));
     }
 
-    /** Overall "CodeFugue score", 0–100: the mean of the five Code DNA axes. */
+    /** Overall "Sonyx score", 0–100: the mean of the five Code DNA axes. */
     public double score() {
         return Math.round((complexity + connectivity + modularity + concurrency + size) / 5 * 1000) / 10.0;
     }
