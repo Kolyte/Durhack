@@ -5,9 +5,18 @@ import java.util.List;
 /** Events streamed to the frontend over /ws/compose. The {@code type} field drives the client's switch. */
 public sealed interface ComposeEvent {
 
-    record RepoTree(String type, String repoName, int bpm, List<FileNode> nodes) implements ComposeEvent {
-        public RepoTree(String repoName, int bpm, List<FileNode> nodes) {
-            this("REPO_TREE", repoName, bpm, nodes);
+    /**
+     * Sent first, before any file is fetched.
+     *
+     * @param totalCodeFiles   source files in the whole repo (after ignoring vendored/build output)
+     * @param sampledCodeFiles source files actually included in {@code nodes} (largest first)
+     * @param treeTruncated    true if GitHub truncated the recursive tree (very large repos)
+     */
+    record RepoTree(String type, String repoName, int bpm, int stars, int totalCodeFiles, int sampledCodeFiles,
+                    boolean treeTruncated, List<FileNode> nodes) implements ComposeEvent {
+        public RepoTree(String repoName, int bpm, int stars, int totalCodeFiles, int sampledCodeFiles,
+                        boolean treeTruncated, List<FileNode> nodes) {
+            this("REPO_TREE", repoName, bpm, stars, totalCodeFiles, sampledCodeFiles, treeTruncated, nodes);
         }
     }
 

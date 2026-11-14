@@ -4,39 +4,48 @@
 
 Paste any public GitHub repo URL. CodeFugue turns its directory structure, static complexity metrics and import graph into an interactive real-time 3D WebGL sculpture you can orbit, zoom and click like an instrument, paired with a live, scale-quantized multi-track electronic composition.
 
-Analysis events are streamed over WebSockets into a browser-based **Tone.js** synth ensemble locked to **D Dorian** (`D E F G A B C`), so every codebase sounds cohesive.
+Analysis events stream over WebSockets into a **Tone.js** engine that composes in **D Dorian** (`D E F G A B C`): chord progressions, voice-led pads and chord-aware melodies, so every codebase sounds musical rather than random.
 
-## Mappings
+## What you get
 
-| Codebase metric | 3D visual | Music |
+- **Two views of the same repo.** *Code City*: directories are neighbourhoods, files are buildings (height = size), imports are glowing arcs. *Dependency Galaxy*: directories are stars, files orbit them as planets (size = connectivity).
+- **Shapes by file role.** Source files are hex towers or crystals. Modules and entry points are spheres with rings. Config files are pyramids or octahedra. Tests are discs. Docs are small, soft shapes.
+- **Metric overlay.** Colour by complexity, file size, dependencies or concurrency (teal → sky → lavender → pink).
+- **Music that fits together.** Chord progressions and chord-aware melodies stay in D Dorian, scheduled on `Tone.Transport`. There are four presets: **Ambient** (default), **Lo-fi**, **Cinematic** and **Electronic**.
+- **Picture and sound in sync.** A file pulses when its note plays. Directory hubs glow on chord changes and the ground pulses on the kick. When the melody follows an import, a light travels along that cable.
+- **Guided tour.** The camera moves from an overview through each directory to the most connected hub, following the composition, and layers join as it goes. Dragging the view pauses the tour.
+- **File inspector.** Shows stats and connections, explains how the file shapes the music, and can play the file's musical signature.
+- **Code DNA.** Complexity, connectivity, modularity, concurrency and size, shown as a radar chart, with notes on what was sampled.
+- **Playback dock.** Play/pause, mute, volume, tempo, reverb, energy, instrument toggles and preset selection, all applied live.
+
+## How code becomes music
+
+| Code characteristic | Musical influence | Visual |
 | --- | --- | --- |
-| Directory hierarchy | Radial clusters / hubs (golden-angle spread) | Instrumentation & timbre grouping |
-| File size (LOC) | Hexagonal tower height | Note duration (`4n` vs `8n`) |
-| Cyclomatic complexity (`if`, `for`, `&&`, …) | Glow colour cyan `#00f5d4` → magenta `#ff006e` | Scale pitch & FM modulation index |
-| Imports / dependencies | Curved glowing Bézier cables | Melodic path during the tour |
-| Concurrency keywords (`async`, `Thread`, `Promise`, …) | Faster rotation | 16th-note sawtooth arpeggio |
-| Repo stars | Pulse intensity | Master tempo (85–134 BPM) & kick |
+| File size (LOC) | Note length (eighths → held notes) | Building height |
+| Complexity | Melodic leap size and brightness | Colour / glow (complexity overlay) |
+| Imports | Melody moves by step between linked files, and a light travels the cable | Arcs / trails |
+| Concurrency | Arpeggio activity (off → quarters → eighths → 16ths) | Ring spin speed |
+| Directory | Which lead voice plays it (e.g. glass, pluck, mallet) | Neighbourhood / solar system |
+| Repo size | Note density | — |
+| Stars | Default energy (capped) | — |
+| Code DNA connectivity | Richer chord extensions (9ths, 6/9s) | Cable density |
+| Code DNA modularity | — | Spacing between clusters |
 
-### Synth ensemble (`frontend/src/audioEngine.ts`)
-1. **Foundation pad** – `Tone.PolySynth`, warm triangle chords through reverb
-2. **Melodic lead** – `Tone.FMSynth`, one bell tone per file; modulation scales with complexity
-3. **Concurrency arpeggiator** – `Tone.MonoSynth`, filtered sawtooth for async-heavy files
-4. **Percussion** – `Tone.MembraneSynth`, sub-bass kick on the beat grid
+The piece is deterministic: the same repo always composes the same music, because the random generator is seeded from the repo name. The arrangement builds up over time: pad → lead (bar 2) → bass (bar 4) → arpeggio (bar 6) → drums (bar 8).
 
 ## Architecture
 
 ```
 frontend (Vite + React 19 + R3F + Tone.js)  ──ws://localhost:8080/ws/compose──▶  backend (Spring Boot 4.1, Java 21)
                                                                                      │
-        ◀── REPO_TREE → NODE_METRICS* → EDGE_FOUND* → COMPOSITION_READY | ERROR ──   ├─ GitHub API: repo meta + recursive tree (1 request)
-                                                                                     └─ raw.githubusercontent.com: top 45 files, 12 at a time on virtual threads
+        ◀── REPO_TREE → NODE_METRICS* → EDGE_FOUND* → COMPOSITION_READY | ERROR ──   ├─ GitHub API: repo meta + recursive tree
+                                                                                     └─ raw.githubusercontent.com: files, 12 at a time on virtual threads
 ```
 
-1. Client sends `{ "repoUrl": "https://github.com/owner/repo" }`.
-2. Backend emits `REPO_TREE` immediately (~300 ms) so the wireframe city appears at once.
-3. It then scans the 45 largest source files concurrently, streaming `NODE_METRICS` and `EDGE_FOUND` as each finishes, then `COMPOSITION_READY`. The client starts the "composition tour".
+The backend samples the 48 largest source and test files, plus up to 8 config files and 6 docs. For each one it streams its role, size, complexity, concurrency markers and import count. It resolves imports to other sampled files by exact base name (`./router` → `router.js` or `router/index.js`, `com.a.UserService` → `UserService.java`). `REPO_TREE` also reports how many source files exist in total, so the UI can say how much was sampled.
 
-Event shapes: `backend/.../compose/ComposeEvent.java` ⇄ `frontend/src/types.ts` — keep them in sync.
+Event shapes: `backend/.../compose/ComposeEvent.java` ⇄ `frontend/src/types.ts`. Keep them in sync.
 
 ## Running locally
 
@@ -60,7 +69,6 @@ npm run dev
 
 Open http://localhost:5173, then click **Compose** or a preset. Audio starts on that click (browsers block autoplay).
 
-Tests: `cd backend && ./mvnw test` · Frontend type-check & build: `cd frontend && npm run build`
 
 The frontend connects to `/ws/compose` on its own host; in dev, Vite proxies that to `localhost:8080`. Set `VITE_WS_URL` to override.
 
@@ -100,22 +108,35 @@ Local smoke test of the same stack: `DOMAIN=http://localhost docker compose up -
 ## Project layout
 
 ```
-backend/   Spring Boot WebSocket server + GitHub analyzer
-  src/main/java/com/codefugue/backend/compose/
-    ComposeEvent.java        sealed event types streamed to the client
-    FileNode.java            per-file metrics + 3D position
-    GitHubAnalyzerService.java  fetch, layout, metrics, import resolution
-    WebSocketConfig.java     /ws/compose handler
-frontend/  Vite + React + TypeScript
-  src/App.tsx               HUD, WebSocket client
-  src/CodeSculpture.tsx     three.js scene (towers, cables, bloom)
-  src/audioEngine.ts        Tone.js ensemble & composition tour
-  src/types.ts              shared event/data types
+backend/src/main/java/com/codefugue/backend/compose/
+  ComposeEvent.java           sealed event types streamed to the client
+  FileNode.java               per-file metrics + role
+  GitHubAnalyzerService.java  fetch, sample, classify, metrics, import resolution
+  WebSocketConfig.java        /ws/compose handler
+frontend/src/
+  App.tsx                     wires stream → model → views/engine
+  types.ts                    shared event/data types
+  state/                      WebSocket hook, tiny store
+  model/                      repoModel (groups, roles, degrees), codeDna
+  audio/
+    theory.ts                 D Dorian, chords, voice leading, seeded RNG
+    presets.ts                Ambient / Lo-fi / Cinematic / Electronic
+    composer.ts               pure: sections, melody, arps, mappings (unit tested)
+    instruments.ts            Tone.js synths per preset
+    AudioEngine.ts            Transport scheduling, mixing, live controls, visual sync
+  visualization/
+    CodeSculpture.tsx         the <Canvas>, lights, bloom
+    layouts.ts                Code City + Dependency Galaxy positions
+    CameraRig.tsx             orbit controls + guided tour
+    pulseBus.ts               audio → visual pulses (no React re-renders)
+    shapes/                   FileShape, DirectoryHub, DependencyCable
+  components/                 RepoInput, PlaybackControls, ViewControls, FileInspector, MetricsPanel
 ```
 
+Tests: `cd backend && ./mvnw test` · `cd frontend && npm test` (composer/model) · `npm run lint` · `npm run build`
+
 ## Ideas / next steps
-- Map directory hubs to distinct instruments/timbres (currently only spatial)
-- Pulse intensity from star count, beat-synced tower pulses
-- Better import resolution (relative paths, Java packages, Python modules)
+- Code Tree view: the repo grows as an organic tree while analysis streams in
 - Record/export the performance (Tone.Recorder → WAV)
-- Use `Tone.Transport` scheduling instead of `setInterval` for tighter timing
+- Smarter import resolution (relative path resolution, tsconfig paths, Java packages)
+- Shareable links that auto-compose a repo (`?repo=owner/name`)
