@@ -1,12 +1,12 @@
 # Server stack for small instances: runs a prebuilt image instead of building on the box.
 # Build & ship from a dev machine:
-#   docker buildx build --platform linux/amd64 -t codefugue-app:amd64 --load .
-#   docker save codefugue-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
+#   docker buildx build --platform linux/amd64 -t sonyx-app:amd64 --load .
+#   docker save sonyx-app:amd64 | gzip | ssh root@<ip> 'gunzip | docker load'
 # Then on the server (in the folder holding this file as docker-compose.yml, Caddyfile and .env):
 #   docker compose up -d
 services:
   app:
-    image: codefugue-app:amd64
+    image: sonyx-app:amd64
     restart: unless-stopped
     environment:
       GITHUB_TOKEN: ${GITHUB_TOKEN:-}
