@@ -3,7 +3,10 @@ import { audioEngine } from '../audio/AudioEngine';
 import { defaultEnergy } from '../audio/composer';
 import type { ComposeEvent, DependencyEdge, FileNode, RepoMeta } from '../types';
 
-const WS_URL = import.meta.env.VITE_WS_URL ?? 'ws://localhost:8080/ws/compose';
+// Same-origin by default: works behind Caddy (wss://) in production and via the Vite proxy in dev.
+const WS_URL =
+  import.meta.env.VITE_WS_URL ??
+  `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/compose`;
 
 export type Phase = 'idle' | 'connecting' | 'analysing' | 'ready' | 'error';
 

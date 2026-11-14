@@ -1,0 +1,6 @@
+# DOMAIN is e.g. 203-0-113-10.sslip.io (Caddy fetches a Let's Encrypt cert automatically).
+# Use DOMAIN=http://localhost for a local plain-HTTP test.
+{$DOMAIN} {
+	encode zstd gzip
+	reverse_proxy app:8080
+}
