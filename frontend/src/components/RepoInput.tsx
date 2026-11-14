@@ -18,7 +18,16 @@ export function RepoInput({
   progress: number | null;
   onCompose: (url: string) => void;
 }) {
-  const [url, setUrl] = useState(PRESET_REPOS[0].url);
+  // A shared link like ?repo=owner/name pre-fills the box (audio still needs a click to start).
+  const [url, setUrl] = useState(() => {
+    const repo = new URLSearchParams(window.location.search).get('repo');
+    return repo ? (repo.startsWith('http') ? repo : `https://github.com/${repo}`) : PRESET_REPOS[0].url;
+  });
+  const go = (target: string) => {
+    const short = target.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\.git$|\/+$/g, '');
+    window.history.replaceState(null, '', `?repo=${encodeURIComponent(short)}`);
+    onCompose(target);
+  };
   const busy = phase === 'connecting' || phase === 'analysing';
 
   return (
@@ -33,7 +42,7 @@ export function RepoInput({
         className="repo-form"
         onSubmit={(e) => {
           e.preventDefault();
-          onCompose(url);
+          go(url);
         }}
       >
         <input
@@ -56,7 +65,7 @@ export function RepoInput({
             disabled={busy}
             onClick={() => {
               setUrl(p.url);
-              onCompose(p.url);
+              go(p.url);
             }}
           >
             {p.label}

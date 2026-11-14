@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { audioEngine, engineStore } from './audio/AudioEngine';
 import { FileInspector } from './components/FileInspector';
+import { HoverTooltip } from './components/HoverTooltip';
+import { hoverStore } from './state/hover';
+import { TourCaption } from './components/TourCaption';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
 import { RepoInput } from './components/RepoInput';
@@ -70,6 +73,29 @@ export default function App() {
     [model, dna],
   );
   const onTourInterrupt = useCallback(() => setTour((t) => (t === 'running' ? 'paused' : t)), []);
+  const onHover = useCallback((id: string | null, x: number, y: number) => hoverStore.set({ id, x, y }), []);
+
+  // Keyboard shortcuts: Space play/pause · 1/2/3 views · T tour · ←/→ tour sections · Esc deselect.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement;
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (model.files.size === 0) return;
+      const views: Record<string, ViewMode> = { '1': 'city', '2': 'galaxy', '3': 'tree' };
+      if (e.key === ' ' && el.tagName !== 'BUTTON') {
+        e.preventDefault();
+        void audioEngine.togglePlay();
+      } else if (views[e.key]) setMode(views[e.key]);
+      else if (e.key === 't' || e.key === 'T') {
+        if (tour === 'off') void onTour('start');
+        else onTour(tour === 'running' ? 'pause' : 'resume');
+      } else if (e.key === 'ArrowRight' && tour !== 'off') audioEngine.jumpToSection(engineStore.get().sectionIndex + 1);
+      else if (e.key === 'ArrowLeft' && tour !== 'off') audioEngine.jumpToSection(engineStore.get().sectionIndex - 1);
+      else if (e.key === 'Escape') setSelectedId(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [model.files.size, tour, onTour]);
 
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const analysed = nodes.filter((n) => n.analyzed).length;
@@ -88,6 +114,7 @@ export default function App() {
           activeGroup={activeGroup}
           tour={tour}
           onSelect={setSelectedId}
+          onHover={onHover}
           onTourInterrupt={onTourInterrupt}
         />
       ) : (
@@ -111,6 +138,10 @@ export default function App() {
       {hasRepo && (
         <>
           <MetricsPanel dna={dna} meta={meta} />
+          {tour !== 'off' && engine.mode === 'composition' && (
+            <TourCaption model={model} meta={meta} dna={dna} onExit={() => setTour('off')} />
+          )}
+          <HoverTooltip model={model} />
           {selected && (
             <FileInspector file={selected} model={model} onSelect={setSelectedId} onClose={() => setSelectedId(null)} />
           )}

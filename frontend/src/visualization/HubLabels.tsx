@@ -43,7 +43,7 @@ export function LabelProjector({ layout, mode }: { layout: Layout; mode: ViewMod
         continue;
       }
       if (mode === 'city') v.set(p[0], p[1] + 0.1, p[2] + h.depth / 2 + 0.25);
-      else v.set(p[0], p[1] + h.width + 0.7, p[2]);
+      else v.set(p[0], p[1] + h.width + (mode === 'tree' ? 1.6 : 0.7), p[2]);
       v.project(camera);
       const visible = v.z < 1 && Math.abs(v.x) < 1.1 && Math.abs(v.y) < 1.1;
       el.style.opacity = visible ? '1' : '0';

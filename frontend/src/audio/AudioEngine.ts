@@ -34,7 +34,7 @@ export interface EngineState {
   ready: boolean;
   playing: boolean;
   mode: 'idle' | 'analysing' | 'composition';
-  sections: { title: string; kind: Section['kind']; groupKey: string | null }[];
+  sections: { title: string; kind: Section['kind']; groupKey: string | null; fileId: string | null }[];
   sectionIndex: number;
   chord: string;
   /** Layers currently audible given the arrangement build-up. */
@@ -179,7 +179,12 @@ class AudioEngine {
     this.restartArrangement();
     engineStore.set({
       mode: 'composition',
-      sections: this.sections.map((s) => ({ title: s.title, kind: s.kind, groupKey: s.groupKey })),
+      sections: this.sections.map((s) => ({
+        title: s.title,
+        kind: s.kind,
+        groupKey: s.groupKey,
+        fileId: s.kind === 'hub' ? (s.walk[0] ?? null) : null,
+      })),
     });
     this.start();
   }
@@ -191,6 +196,19 @@ class AudioEngine {
     this.walkPos = 0;
     playhead.sectionIndex = 0;
     engineStore.set({ sectionIndex: 0 });
+  }
+
+  /** Jumps the composition (and therefore the tour camera) to another section, starting at its next bar. */
+  jumpToSection(index: number) {
+    if (this.mode !== 'composition' || this.sections.length === 0) return;
+    const i = ((index % this.sections.length) + this.sections.length) % this.sections.length;
+    this.sectionIndex = i;
+    this.barInSection = 0;
+    this.walkPos = 0;
+    // Skip the gradual build-up when jumping around: everything is already playing.
+    this.arrangementBar = Math.max(this.arrangementBar, 8);
+    playhead.sectionIndex = i;
+    engineStore.set({ sectionIndex: i });
   }
 
   start() {

@@ -714,6 +714,131 @@ input[type='range']::-moz-range-thumb {
   background: linear-gradient(90deg, var(--teal), var(--cyan), var(--lavender), var(--pink));
 }
 
+/* ───────── tour caption ───────── */
+
+.caption {
+  position: absolute;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  width: min(460px, calc(100% - 600px));
+  min-width: 300px;
+  padding: 12px 16px 12px;
+}
+
+.caption__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.caption__nav {
+  display: flex;
+  gap: 2px;
+  margin-right: -6px;
+}
+
+.caption__nav .btn--icon {
+  font-size: 16px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+
+.caption__body {
+  animation: caption-in 0.6s ease both;
+}
+
+@keyframes caption-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.caption__title {
+  margin: 2px 0 4px;
+  font-size: 18px;
+  word-break: break-word;
+}
+
+.caption__text {
+  margin: 0;
+  color: var(--text);
+  opacity: 0.85;
+  font-size: 13px;
+}
+
+.caption__facts {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.caption__facts li {
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 9px;
+}
+
+.caption__music {
+  margin: 8px 0 0;
+  font: 12px var(--mono);
+  color: var(--lavender);
+}
+
+.caption__dots {
+  display: flex;
+  gap: 5px;
+  margin-top: 10px;
+}
+
+.caption__dot {
+  flex: 1;
+  height: 3px;
+  border-radius: 3px;
+  background: rgba(148, 163, 184, 0.18);
+  transition: background 0.4s;
+}
+
+.caption__dot.is-on {
+  background: linear-gradient(90deg, var(--teal), var(--lavender));
+}
+
+/* ───────── hover tooltip ───────── */
+
+.tooltip {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 30;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  background: rgba(6, 9, 20, 0.92);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.tooltip strong {
+  color: var(--text);
+  font: 600 12px var(--mono);
+}
+
 /* ───────── 3D labels ───────── */
 
 .hub-labels {
@@ -760,6 +885,14 @@ input[type='range']::-moz-range-thumb {
 
   .dna {
     display: none;
+  }
+
+  .caption {
+    width: auto;
+    min-width: 0;
+    left: 16px;
+    right: 16px;
+    transform: none;
   }
 
   .inspector {

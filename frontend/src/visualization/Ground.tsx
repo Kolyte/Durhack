@@ -20,12 +20,12 @@ export function Ground({ mode, radius }: { mode: ViewMode; radius: number }) {
   });
 
   const size = Math.ceil(radius * 2.6 / 2) * 2;
-  if (mode === 'city') {
+  if (mode !== 'galaxy') {
     return (
       <group>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.13, 0]}>
           <circleGeometry args={[size, 64]} />
-          <meshStandardMaterial color={PALETTE.bg} roughness={1} />
+          <meshStandardMaterial color={mode === 'city' ? '#0a1022' : PALETTE.bg} roughness={1} />
         </mesh>
         <gridHelper
           ref={grid}
