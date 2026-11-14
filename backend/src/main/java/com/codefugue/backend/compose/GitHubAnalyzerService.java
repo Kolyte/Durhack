@@ -1,5 +1,7 @@
 package com.codefugue.backend.compose;
 
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -64,7 +66,17 @@ public class GitHubAnalyzerService {
             .proxy(ProxySelector.getDefault()) // honour -Dhttps.proxyHost etc. if set
             .build();
     private final JsonMapper mapper = JsonMapper.builder().build();
-    private final String githubToken = System.getenv("GITHUB_TOKEN");
+    /** From GITHUB_TOKEN: an environment variable or a line in backend/.env (see application.properties). */
+    private final String githubToken;
+
+    public GitHubAnalyzerService() {
+        this(System.getenv("GITHUB_TOKEN"));
+    }
+
+    @Autowired
+    public GitHubAnalyzerService(@Value("${GITHUB_TOKEN:}") String githubToken) {
+        this.githubToken = githubToken;
+    }
 
     public void analyzeAndStream(String repoUrl, Consumer<ComposeEvent> emit) {
         try {
@@ -116,7 +128,7 @@ public class GitHubAnalyzerService {
             }
 
             int sampledCode = Math.min(code.size(), MAX_CODE_FILES);
-            emit.accept(new ComposeEvent.RepoTree(owner + "/" + repo, bpm, stars, code.size(), sampledCode,
+            emit.accept(new ComposeEvent.RepoTree(owner + "/" + repo, branch, bpm, stars, code.size(), sampledCode,
                     treeRoot.path("truncated").asBoolean(false), initialNodes));
 
             Semaphore limiter = new Semaphore(MAX_CONCURRENT_FETCHES);

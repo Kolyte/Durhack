@@ -22,6 +22,8 @@ export interface DependencyEdge {
 
 export interface RepoMeta {
   repoName: string;
+  /** Default branch the files were read from (used to fetch code for Gemini explanations). */
+  branch: string;
   bpm: number;
   stars: number;
   totalCodeFiles: number;
