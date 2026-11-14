@@ -1,8 +1,14 @@
 import { useState } from 'react';
+import { COMPACT_QUERY, useMediaQuery } from '../state/useMediaQuery';
 import type { Phase } from '../state/useComposeStream';
 
-/** Pre-filled so first-time visitors can just press Compose. */
-const DEFAULT_REPO_URL = 'https://github.com/expressjs/express';
+/** "github.com/a/b", "a/b" or a full URL → a full https URL the backend understands. */
+function normalizeRepoUrl(raw: string): string {
+  const t = raw.trim();
+  if (/^https?:\/\//i.test(t)) return t;
+  if (/^(www\.)?github\.com\//i.test(t)) return `https://${t}`;
+  return t;
+}
 
 export function RepoInput({
   phase,
@@ -21,12 +27,17 @@ export function RepoInput({
   repoName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
+  // Shorter hint on phones so it isn't cut off in the narrow box.
+  const placeholder = useMediaQuery(COMPACT_QUERY) ? 'Paste GitHub link…' : 'Paste your GitHub repo link here…';
   // A shared link like ?repo=owner/name pre-fills the box (audio still needs a click to start).
   const [url, setUrl] = useState(() => {
     const repo = new URLSearchParams(window.location.search).get('repo');
-    return repo ? (repo.startsWith('http') ? repo : `https://github.com/${repo}`) : DEFAULT_REPO_URL;
+    // Otherwise empty, so the placeholder tells first-time visitors what to do.
+    return repo ? (repo.startsWith('http') ? repo : `https://github.com/${repo}`) : '';
   });
-  const go = (target: string) => {
+  const go = (raw: string) => {
+    const target = normalizeRepoUrl(raw);
+    if (!target) return;
     const short = target.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\.git$|\/+$/g, '');
     window.history.replaceState(null, '', `?repo=${encodeURIComponent(short)}`);
     setExpanded(false);
@@ -86,11 +97,11 @@ export function RepoInput({
           className="input"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://github.com/owner/repo"
+          placeholder={placeholder}
           aria-label="GitHub repository URL"
           spellCheck={false}
         />
-        <button className="btn btn--primary" type="submit" disabled={busy}>
+        <button className="btn btn--primary" type="submit" disabled={busy || !url.trim()}>
           {busy ? 'Composing…' : 'Compose'}
         </button>
       </form>
