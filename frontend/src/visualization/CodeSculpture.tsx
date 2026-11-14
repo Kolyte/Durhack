@@ -5,9 +5,10 @@ import * as THREE from 'three';
 import type { RepoModel } from '../model/repoModel';
 import type { MetricOverlay, ViewMode } from '../types';
 import { CameraRig, type TourState } from './CameraRig';
+import { CityScenery } from './CityScenery';
 import { Ground } from './Ground';
 import { LabelProjector } from './HubLabels';
-import type { Layout } from './layouts';
+import type { CityPlan, Layout } from './layouts';
 import { metricValue, PALETTE, rampColor, ROLE_TINT } from './palette';
 import { DependencyCable } from './shapes/DependencyCable';
 import { DirectoryHub } from './shapes/DirectoryHub';
@@ -25,6 +26,8 @@ interface Props {
   onSelect: (id: string | null) => void;
   onHover: (id: string | null, x: number, y: number) => void;
   onTourInterrupt: () => void;
+  /** The city's streets/parks/river, kept mounted (hidden) in other views so switching back is instant. */
+  cityPlan: CityPlan | undefined;
 }
 
 const WARM_BRANCH: Layout['branches'] = [{ start: [0, -50, 0], end: [0, -49, 0], radius: 0.01, depth: 0 }];
@@ -71,7 +74,7 @@ function ShaderWarmup({ token }: { token: string }) {
   return null;
 }
 
-export function CodeSculpture({ model, layout, mode, overlay, selectedId, activeGroup, tour, onSelect, onHover, onTourInterrupt }: Props) {
+export function CodeSculpture({ model, layout, mode, overlay, selectedId, activeGroup, tour, onSelect, onHover, onTourInterrupt, cityPlan }: Props) {
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const related = useMemo(
     () => new Set(selected ? [...selected.deps, ...selected.dependents] : []),
@@ -109,6 +112,7 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
       <pointLight position={[-layout.radius, layout.radius * 0.6, -layout.radius]} intensity={45} distance={layout.radius * 5} color={PALETTE.pink} />
 
       <Ground mode={mode} radius={layout.radius} />
+      <CityScenery plan={cityPlan} visible={mode === 'city'} />
       {/* Always mounted (one hidden twig outside the tree view) so the bark shader stays compiled. */}
       <TreeBranches key={mode === 'tree' ? layout.branches.length : 0} branches={mode === 'tree' ? layout.branches : WARM_BRANCH} visible={mode === 'tree'} />
       <ShaderWarmup token={`${model.files.size}-${model.groups.length}`} />

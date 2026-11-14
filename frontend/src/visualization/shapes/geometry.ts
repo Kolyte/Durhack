@@ -103,83 +103,165 @@ export interface ShapeRecipe {
   anchorY: number;
 }
 
+/** Optional per-file traits that pick the City building style. */
+export interface BuildingTraits {
+  /** 0–1 complexity level. */
+  complexity: number;
+  /** Uses async/concurrency. */
+  concurrent: boolean;
+}
+
 /**
  * Geometry per file role and view.
- *  City:   source = stepped skyscraper · module = round landmark tower with halo ring · config = small
- *          building with pyramid roof · test = stadium · docs = little library kiosk.
+ *  City (by role, and for source files by complexity):
+ *    simple → low-rise block · moderate → office with setbacks · complex → tower with antenna ·
+ *    very complex → tapered spire skyscraper · module → round landmark tower with halo ring ·
+ *    test → research lab with rooftop dish · docs → library with a pediment · config → utility house.
+ *    Files using concurrency get a rooftop beacon.
  *  Galaxy: crystal planet · ringed planet · octahedron · flat torus · small moon.
  *  Tree:   leaf · blossom · crystal · flower · bud.
  */
-export function shapeFor(kind: FileInfo['kind'], mode: ViewMode, h: number, s: number, footprint: number): ShapeRecipe {
-  if (mode === 'city') return cityShape(kind, h, footprint);
+export function shapeFor(
+  kind: FileInfo['kind'],
+  mode: ViewMode,
+  h: number,
+  s: number,
+  footprint: number,
+  traits: BuildingTraits = { complexity: 0.3, concurrent: false },
+): ShapeRecipe {
+  if (mode === 'city') return cityShape(kind, h, footprint, traits);
   if (mode === 'tree') return treeShape(kind, s);
   return galaxyShape(kind, s);
 }
 
-function cityShape(kind: FileInfo['kind'], h: number, w: number): ShapeRecipe {
+const box = (w: number, h: number, d: number, y: number, mat: Part['mat'] = 'body', x = 0, z = 0): Part => ({
+  geometry: mat === 'body' ? windowedBox(w, h, d) : new THREE.BoxGeometry(w, h, d),
+  mat,
+  position: [x, y + h / 2, z],
+});
+
+/** A glowing band around the top of a block (roof parapet / setback crown). */
+const crown = (w: number, d: number, y: number): Part => ({ geometry: new THREE.BoxGeometry(w * 1.03, 0.05, d * 1.03), mat: 'accent', position: [0, y, 0] });
+
+function withBeacon(recipe: ShapeRecipe, traits: BuildingTraits): ShapeRecipe {
+  if (!traits.concurrent) return recipe;
+  // Concurrency: a small rooftop beacon on a mast.
+  recipe.parts.push(
+    { geometry: new THREE.CylinderGeometry(0.015, 0.015, 0.35, 5), mat: 'accent', position: [0, recipe.anchorY + 0.17, 0] },
+    { geometry: new THREE.OctahedronGeometry(0.07, 0), mat: 'accent', position: [0, recipe.anchorY + 0.4, 0] },
+  );
+  recipe.anchorY += 0.45;
+  return recipe;
+}
+
+function cityShape(kind: FileInfo['kind'], h: number, w: number, traits: BuildingTraits): ShapeRecipe {
   switch (kind) {
     case 'module': {
+      // Landmark: round tower with a dome, spire and rotating halo ring.
       const r = w * 0.48;
       const towerH = h * 0.9;
-      return {
-        anchorY: towerH + 0.9,
-        parts: [
-          { geometry: windowedCylinder(r * 0.85, r, towerH, 16), mat: 'body', position: [0, towerH / 2, 0] },
-          { geometry: new THREE.SphereGeometry(r * 0.85, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat: 'accent', position: [0, towerH, 0] },
-          { geometry: new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6), mat: 'accent', position: [0, towerH + r * 0.85 + 0.3, 0] },
-          { geometry: new THREE.TorusGeometry(r * 1.7, 0.03, 8, 48), mat: 'accent', position: [0, towerH + 0.25, 0], rotation: [Math.PI / 2.3, 0, 0], spin: true },
-        ],
-      };
+      return withBeacon(
+        {
+          anchorY: towerH + 0.9,
+          parts: [
+            { geometry: windowedCylinder(r * 0.85, r, towerH, 16), mat: 'body', position: [0, towerH / 2, 0] },
+            { geometry: new THREE.SphereGeometry(r * 0.85, 20, 12, 0, Math.PI * 2, 0, Math.PI / 2), mat: 'accent', position: [0, towerH, 0] },
+            { geometry: new THREE.CylinderGeometry(0.025, 0.025, 0.7, 6), mat: 'accent', position: [0, towerH + r * 0.85 + 0.3, 0] },
+            { geometry: new THREE.TorusGeometry(r * 1.7, 0.03, 8, 48), mat: 'accent', position: [0, towerH + 0.25, 0], rotation: [Math.PI / 2.3, 0, 0], spin: true },
+          ],
+        },
+        { ...traits, concurrent: false },
+      );
     }
     case 'config': {
+      // Utility house: a small block with a pyramid roof.
       const bh = Math.max(0.45, h * 0.55);
       return {
         anchorY: bh + 0.45,
         parts: [
-          { geometry: windowedBox(w * 0.85, bh, w * 0.85), mat: 'body', position: [0, bh / 2, 0] },
+          box(w * 0.85, bh, w * 0.85, 0),
           { geometry: new THREE.ConeGeometry(w * 0.66, 0.5, 4), mat: 'accent', position: [0, bh + 0.25, 0], rotation: [0, Math.PI / 4, 0] },
         ],
       };
     }
-    case 'test':
-      return {
-        anchorY: 0.3,
-        parts: [
-          { geometry: windowedCylinder(w * 0.62, w * 0.66, 0.26, 28), mat: 'body', position: [0, 0.13, 0] },
-          { geometry: new THREE.TorusGeometry(w * 0.6, 0.035, 8, 40), mat: 'accent', position: [0, 0.27, 0], rotation: [Math.PI / 2, 0, 0] },
-          { geometry: new THREE.CircleGeometry(w * 0.42, 28), mat: 'accent', position: [0, 0.2, 0], rotation: [-Math.PI / 2, 0, 0], scale: [1, 1, 1] },
-        ],
-      };
-    case 'docs':
-      return {
-        anchorY: 0.6,
-        parts: [
-          { geometry: windowedBox(w * 0.6, 0.42, w * 0.6), mat: 'body', position: [0, 0.21, 0] },
-          { geometry: new THREE.SphereGeometry(w * 0.22, 14, 8, 0, Math.PI * 2, 0, Math.PI / 2), mat: 'accent', position: [0, 0.42, 0] },
-        ],
-      };
-    default: {
-      // Stepped skyscraper: taller files get more setbacks, the tallest get an antenna.
-      const parts: Part[] = [];
-      const tiers = h > 3.2 ? 3 : h > 1.6 ? 2 : 1;
-      const split = tiers === 3 ? [0.58, 0.28, 0.14] : tiers === 2 ? [0.7, 0.3] : [1];
-      let y = 0;
-      let tw = w;
-      split.forEach((f, i) => {
-        const th = h * f;
-        parts.push({ geometry: windowedBox(tw, th, tw), mat: 'body', position: [0, y + th / 2, 0] });
-        y += th;
-        // Glowing crown band at each setback.
-        parts.push({ geometry: new THREE.BoxGeometry(tw * 1.02, 0.05, tw * 1.02), mat: 'accent', position: [0, y, 0] });
-        if (i < split.length - 1) tw *= 0.72;
-      });
-      if (h > 4) {
-        parts.push({ geometry: new THREE.CylinderGeometry(0.02, 0.03, 0.9, 6), mat: 'accent', position: [0, y + 0.45, 0] });
-        y += 0.9;
-      }
-      return { anchorY: y, parts };
+    case 'test': {
+      // Research lab: wide low block, glowing glass band, rooftop dish on a mast.
+      const bh = Math.max(0.55, Math.min(1.6, h * 2));
+      return withBeacon(
+        {
+          anchorY: bh + 0.35,
+          parts: [
+            box(w, bh, w * 0.8, 0),
+            { geometry: new THREE.BoxGeometry(w * 1.02, 0.08, w * 0.82), mat: 'accent', position: [0, bh * 0.55, 0] },
+            crown(w, w * 0.8, bh),
+            { geometry: new THREE.CylinderGeometry(0.02, 0.02, 0.22, 5), mat: 'accent', position: [w * 0.2, bh + 0.11, 0] },
+            { geometry: new THREE.ConeGeometry(0.17, 0.09, 12, 1, true), mat: 'accent', position: [w * 0.2, bh + 0.25, 0], rotation: [Math.PI * 0.85, 0, 0] },
+          ],
+        },
+        traits,
+      );
     }
+    case 'docs': {
+      // Library: low block with a triangular pediment over the entrance.
+      const bh = 0.55;
+      // A 3-sided prism lying along z, flattened: its triangular face points to the street, peak up.
+      const r = w * 0.46;
+      const pediment = new THREE.CylinderGeometry(r, r, w * 0.65, 3);
+      return {
+        anchorY: bh + 0.3,
+        parts: [
+          box(w * 0.8, bh, w * 0.65, 0),
+          { geometry: pediment, mat: 'accent', position: [0, bh + 0.225 * r, 0], rotation: [-Math.PI / 2, 0, 0], scale: [1, 1, 0.45] },
+          { geometry: new THREE.BoxGeometry(w * 0.86, 0.06, w * 0.75), mat: 'accent', position: [0, 0.03, 0] },
+        ],
+      };
+    }
+    default:
+      return withBeacon(sourceBuilding(h, w, traits.complexity), traits);
   }
+}
+
+/** Source files: the more complex the code, the more elaborate the building. */
+function sourceBuilding(h: number, w: number, cx: number): ShapeRecipe {
+  if (cx < 0.25) {
+    // Simple: a plain low-rise block with a rooftop unit.
+    const bh = Math.max(0.5, h * 0.7);
+    return {
+      anchorY: bh + 0.15,
+      parts: [box(w, bh, w * 0.9, 0), crown(w, w * 0.9, bh), box(w * 0.3, 0.15, w * 0.25, bh, 'accent', w * 0.15, -w * 0.1)],
+    };
+  }
+  if (cx > 0.75 && h > 1.4) {
+    // Very complex: a tapered spire skyscraper.
+    const shaft = h * 0.88;
+    const g = windowedCylinder(w * 0.36, w * 0.62, shaft, 4);
+    g.rotateY(Math.PI / 4);
+    return {
+      anchorY: h + 0.8,
+      parts: [
+        { geometry: g, mat: 'body', position: [0, shaft / 2, 0] },
+        { geometry: new THREE.ConeGeometry(w * 0.25, h * 0.12 + 0.8, 4), mat: 'accent', position: [0, shaft + (h * 0.12 + 0.8) / 2, 0], rotation: [0, Math.PI / 4, 0] },
+      ],
+    };
+  }
+  // Moderate → offices with setbacks; complex → more setbacks and an antenna.
+  const parts: Part[] = [];
+  const tiers = cx > 0.5 ? (h > 2.5 ? 3 : 2) : h > 2 ? 2 : 1;
+  const split = tiers === 3 ? [0.58, 0.28, 0.14] : tiers === 2 ? [0.7, 0.3] : [1];
+  let y = 0;
+  let tw = w;
+  split.forEach((f, i) => {
+    const th = h * f;
+    parts.push(box(tw, th, tw, y));
+    y += th;
+    parts.push(crown(tw, tw, y));
+    if (i < split.length - 1) tw *= 0.72;
+  });
+  if (cx > 0.5) {
+    parts.push({ geometry: new THREE.CylinderGeometry(0.02, 0.03, 0.9, 6), mat: 'accent', position: [0, y + 0.45, 0] });
+    y += 0.9;
+  }
+  return { anchorY: y, parts };
 }
 
 function galaxyShape(kind: FileInfo['kind'], s: number): ShapeRecipe {
