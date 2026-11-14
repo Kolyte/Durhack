@@ -68,9 +68,29 @@ The backend samples the 48 largest source and test files, plus up to 8 config fi
 
 Event shapes: `backend/.../compose/ComposeEvent.java` ⇄ `frontend/src/types.ts`. Keep them in sync.
 
+## Leaderboard
+
+`/ranking.html` ranks every repository composed on the site by its Code DNA (the five 0–1 axes shown on the main page). The overall score is their mean × 100, and the page can sort by any axis, stars or recency. It updates live: when anyone finishes a composition, the browser posts the scores to `POST /api/rankings`, and open leaderboards get a Server-Sent Event (`/api/rankings/stream`) and refresh. Clicking a repo opens `/?repo=owner/name` on the composer with a one-click ▶ Compose button (audio needs a user gesture).
+
+* Storage: PostgreSQL/TimescaleDB (Tiger Data in production). Every run is appended to `repo_analyses` (a hypertable on `analyzed_at` when TimescaleDB is present); the board shows each repo's latest run. The table is created automatically.
+* Only repos this server analysed in the last 30 minutes are accepted, and stars / file counts come from the server, not the client.
+* If the database is unreachable the composer keeps working; the leaderboard shows an error.
+
+Database settings (env vars): `DATABASE_URL` — paste Tiger Data's connection string as-is (`postgres://tsdbadmin:<password>@<host>:<port>/tsdb?sslmode=require`; credentials are taken from it), or use a `jdbc:postgresql://…` URL together with `DATABASE_USER` / `DATABASE_PASSWORD`.
+
 ## Running locally
 
-Prerequisites: **Java 21+** and **Node 20+** (Maven not needed — the wrapper downloads it).
+Quickest — everything in Docker (TimescaleDB + app; no Java or Postgres install needed):
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+Composer: http://localhost:8080 · Leaderboard: http://localhost:8080/ranking.html. For frontend hot reload, keep that running and also run `cd frontend && npm install && npm run dev`, then open http://localhost:5173 (Vite proxies `/ws` and `/api` to port 8080).
+
+Without Docker for the backend:
+
+Prerequisites: **Java 21+** and **Node 20+** (Maven not needed — the wrapper downloads it), plus a PostgreSQL on `localhost:5432` (database `codefugue`, user/password `postgres`) for the leaderboard.
 
 Backend (set a GitHub token for 5,000 req/hr instead of 60):
 
@@ -120,6 +140,8 @@ One Docker image (Vite build bundled into the Spring Boot jar) behind Caddy, whi
    ```bash
    DOMAIN=<ip-with-dashes>.nip.io
    GITHUB_TOKEN=ghp_your_token_here
+   # Leaderboard database (Tiger Data service)
+   DATABASE_URL=postgres://tsdbadmin:<password>@<host>:<port>/tsdb?sslmode=require
    ```
 
    `cd /opt/sonyx && docker compose up -d`, then open `https://<ip-with-dashes>.nip.io`. To update, repeat step 3 and run `docker compose up -d` again.
