@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { audioEngine } from '../audio/AudioEngine';
+import { audioEngine, engineStore } from '../audio/AudioEngine';
 import { defaultEnergy } from '../audio/composer';
 import type { ComposeEvent, DependencyEdge, FileNode, RepoMeta } from '../types';
 
@@ -19,9 +19,13 @@ export function useComposeStream() {
   const [status, setStatus] = useState('Paste a public GitHub repo or pick a preset');
   const wsRef = useRef<WebSocket | null>(null);
 
-  const compose = useCallback(async (repoUrl: string) => {
+  /**
+   * @param fromGesture true when called from a click. Opening a link (?repo=…) composes without one:
+   *        the visuals stream in right away and the music starts on the user's first click.
+   */
+  const compose = useCallback(async (repoUrl: string, fromGesture = true) => {
     // Must start inside the click handler: browsers only allow audio after a user gesture.
-    const unlocked = audioEngine.unlock();
+    const unlocked = fromGesture ? audioEngine.unlock() : null;
     audioEngine.stop();
     wsRef.current?.close();
     setNodes([]);
@@ -29,7 +33,7 @@ export function useComposeStream() {
     setMeta(null);
     setPhase('connecting');
     setStatus('Connecting to the CodeFugue engine…');
-    await unlocked;
+    if (unlocked) await unlocked;
 
     const ws = new WebSocket(WS_URL);
     wsRef.current = ws;
@@ -56,7 +60,8 @@ export function useComposeStream() {
           setNodes(treeNodes);
           setPhase('analysing');
           setStatus(`Analysing ${m.repoName}…`);
-          void audioEngine.beginAnalysis(m.repoName, defaultEnergy(m.stars));
+          // Without unlocked audio, skip the "listening" intro; the full composition loads when ready.
+          if (engineStore.get().ready) void audioEngine.beginAnalysis(m.repoName, defaultEnergy(m.stars));
           break;
         }
         case 'NODE_METRICS':
