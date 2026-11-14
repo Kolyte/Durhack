@@ -7,7 +7,6 @@ import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
 import { RepoInput } from './components/RepoInput';
-import { TourGuide } from './components/TourGuide';
 import { ViewControls } from './components/ViewControls';
 import { computeCodeDna } from './model/codeDna';
 import { buildRepoModel } from './model/repoModel';
@@ -235,7 +234,6 @@ export default function App() {
 
       {hasRepo && !compact && (
         <>
-          {!selected && <TourGuide tour={tour} onTour={onTour} />}
           <div className="bottom">
             <ViewControls
               mode={mode}
@@ -273,9 +271,7 @@ export default function App() {
               {sheet === 'music' && <PlaybackControls embedded canPlay={hasRepo} />}
               {sheet === 'dna' && <MetricsPanel embedded dna={dna} meta={meta} />}
             </div>
-          ) : (
-            <TourGuide tour={tour} onTour={onTour} />
-          )}
+          ) : null}
           <nav className="mobile-bar panel" aria-label="Controls">
             <div className="mobile-bar__row">
               <button
@@ -294,9 +290,14 @@ export default function App() {
                   ▶ Tour
                 </button>
               ) : (
-                <button className="btn" onClick={() => onTour(tour === 'running' ? 'pause' : 'resume')}>
-                  {tour === 'running' ? 'Pause tour' : 'Resume tour'}
-                </button>
+                <>
+                  <button className="btn" onClick={() => onTour(tour === 'running' ? 'pause' : 'resume')}>
+                    {tour === 'running' ? 'Pause tour' : 'Resume tour'}
+                  </button>
+                  <button className="btn btn--icon" onClick={() => onTour('exit')} aria-label="Exit tour">
+                    ✕
+                  </button>
+                </>
               )}
             </div>
             <div className="segmented mobile-bar__tabs" role="tablist" aria-label="Panels">
