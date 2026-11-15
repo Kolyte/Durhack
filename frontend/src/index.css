@@ -1182,6 +1182,11 @@ input[type='range']::-moz-range-thumb {
     display: none;
   }
 
+  /* Keep the score clear of the sheet's ✕ close button in the top-right corner. */
+  .dna--embedded .dna__score {
+    margin-right: 40px;
+  }
+
 }
 
 /* Phones held sideways: very little height, so the bar becomes a single row. */
