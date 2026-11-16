@@ -9,6 +9,10 @@ import org.springframework.web.socket.config.annotation.WebSocketConfigurer;
 import org.springframework.web.socket.config.annotation.WebSocketHandlerRegistry;
 import org.springframework.web.socket.handler.TextWebSocketHandler;
 import tools.jackson.databind.json.JsonMapper;
+import com.codefugue.backend.account.AccountService;
+import org.springframework.beans.factory.annotation.Value;
+
+import java.util.Arrays;
 
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -18,21 +22,30 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final GitHubAnalyzerService analyzer;
     private final RecentAnalyses recentAnalyses;
+    private final AccountService accounts;
+    private final String[] allowedOrigins;
     private final JsonMapper mapper = JsonMapper.builder().build();
 
-    public WebSocketConfig(GitHubAnalyzerService analyzer, RecentAnalyses recentAnalyses) {
+    public WebSocketConfig(GitHubAnalyzerService analyzer, RecentAnalyses recentAnalyses, AccountService accounts,
+                           @Value("${ALLOWED_ORIGINS:}") String allowedOrigins) {
         this.analyzer = analyzer;
         this.recentAnalyses = recentAnalyses;
+        this.accounts = accounts;
+        this.allowedOrigins = Arrays.stream(allowedOrigins.split(",")).map(String::trim).filter(o -> !o.isEmpty())
+                .toArray(String[]::new);
     }
 
     @Override
     public void registerWebSocketHandlers(WebSocketHandlerRegistry registry) {
-        registry.addHandler(new TextWebSocketHandler() {
+        var registration = registry.addHandler(new TextWebSocketHandler() {
             @Override
             protected void handleTextMessage(WebSocketSession session, TextMessage message) {
                 String repoUrl = mapper.readTree(message.getPayload()).path("repoUrl").asString();
+                // Pro subscribers (signed in via the session cookie on the handshake) get bigger repos analysed.
+                int maxFiles = accounts.isProSubscriber(session.getPrincipal())
+                        ? GitHubAnalyzerService.PRO_MAX_CODE_FILES : GitHubAnalyzerService.MAX_CODE_FILES;
                 AtomicReference<ComposeEvent.RepoTree> tree = new AtomicReference<>();
-                Thread.startVirtualThread(() -> analyzer.analyzeAndStream(repoUrl, event -> {
+                Thread.startVirtualThread(() -> analyzer.analyzeAndStream(repoUrl, maxFiles, event -> {
                     // Remember finished analyses so the browser may submit their scores to the ranking.
                     if (event instanceof ComposeEvent.RepoTree t) tree.set(t);
                     if (event instanceof ComposeEvent.CompositionReady && tree.get() != null) {
@@ -49,6 +62,9 @@ public class WebSocketConfig implements WebSocketConfigurer {
                     }
                 }));
             }
-        }, "/ws/compose").setAllowedOrigins("*");
+        }, "/ws/compose");
+        // Same-origin only by default: the socket carries the session cookie, so other sites mustn't open it.
+        // Set ALLOWED_ORIGINS (comma-separated) if the frontend is served from a different origin.
+        if (allowedOrigins.length > 0) registration.setAllowedOrigins(allowedOrigins);
     }
 }

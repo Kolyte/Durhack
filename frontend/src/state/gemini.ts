@@ -1,3 +1,4 @@
+import { apiFetch } from '../api/http';
 import type { FileExplanation } from '../model/explain';
 import type { FileInfo } from '../model/repoModel';
 import type { RepoMeta } from '../types';
@@ -14,6 +15,15 @@ export interface GeminiStatus {
 
 export interface GeminiExplanation extends FileExplanation {
   model: string;
+}
+
+/** A failed request; `code` is "sign_in" or "pro_required" when the user needs an account / Pro. */
+export class GeminiError extends Error {
+  readonly code: string;
+  constructor(message: string, code: string) {
+    super(message);
+    this.code = code;
+  }
 }
 
 let statusPromise: Promise<GeminiStatus> | null = null;
@@ -38,7 +48,7 @@ export async function explainWithGemini(meta: RepoMeta, file: FileInfo): Promise
   if (cached) return cached;
 
   const [owner, repo] = meta.repoName.split('/');
-  const res = await fetch('/api/explain', {
+  const res = await apiFetch('/api/explain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -54,8 +64,16 @@ export async function explainWithGemini(meta: RepoMeta, file: FileInfo): Promise
       importedBy: file.dependents.length,
     }),
   });
-  const data = (await res.json().catch(() => ({}))) as { purpose?: string; details?: string[]; model?: string; message?: string };
-  if (!res.ok || !data.purpose) throw new Error(data.message ?? `Gemini request failed (${res.status})`);
+  const data = (await res.json().catch(() => ({}))) as {
+    purpose?: string;
+    details?: string[];
+    model?: string;
+    message?: string;
+    error?: string;
+  };
+  if (!res.ok || !data.purpose) {
+    throw new GeminiError(data.message ?? `Gemini request failed (${res.status})`, data.error ?? '');
+  }
   const out = { purpose: data.purpose, details: data.details ?? [], model: data.model ?? '' };
   answers.set(key, out);
   return out;

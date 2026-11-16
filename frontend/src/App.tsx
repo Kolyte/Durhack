@@ -6,7 +6,10 @@ import { HoverTooltip } from './components/HoverTooltip';
 import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
+import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
+import { Toast } from './components/Toast';
+import { initAccount } from './state/account';
 import { TourGuide } from './components/TourGuide';
 import { ViewControls } from './components/ViewControls';
 import { computeCodeDna } from './model/codeDna';
@@ -52,6 +55,7 @@ export default function App() {
   );
   const layout = otherLayout ?? cityLayout;
 
+  useEffect(() => void initAccount(), []);
   useEffect(() => audioEngine.setModel(model, dna), [model, dna]);
 
   // When analysis finishes, switch from the "listening" intro to the full composition.
@@ -221,6 +225,8 @@ export default function App() {
         collapsible={compact && hasRepo}
         repoName={meta?.repoName}
       />
+      <PricingModal />
+      <Toast />
 
       {/* One FileInspector for both layouts (on phones the CSS turns it into a bottom sheet). */}
       {hasRepo && (

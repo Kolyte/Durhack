@@ -80,7 +80,7 @@ Database settings (env vars): `DATABASE_URL` — paste Tiger Data's connection s
 
 ## Gemini explanations (optional)
 
-The file inspector can ask Google Gemini to explain a file. Click a building, then press **✨ Explain with Gemini**.
+The file inspector can ask Google Gemini to explain a file. Click a building, then press **✨ Explain with Gemini**. Once Stripe billing is configured this becomes a Sonyx Pro feature (see below).
 
 How it works:
 - The browser calls our backend (`POST /api/explain`).
@@ -102,6 +102,86 @@ Protecting the free quota:
 - The server allows at most `GEMINI_MAX_PER_MINUTE` (default 15) requests per minute.
 
 `GET /api/explain/status` shows whether Gemini is enabled and which model is used.
+
+## Accounts and Sonyx Pro (optional)
+
+Sonyx works with no accounts at all. Two optional features turn it into a product you can publish:
+
+- **Sign in with GitHub.** Accounts are stored in the same Postgres database as the leaderboard (`app_users` table, created automatically).
+- **Sonyx Pro**, a monthly subscription paid through **Stripe Checkout**. Stripe hosts the card form, so card details never touch our server.
+
+| | Free | Pro |
+|---|---|---|
+| Any public repo, all views and music styles, leaderboard | ✓ | ✓ |
+| ✨ Gemini file explanations | | ✓ |
+| Source files analysed per repo | 48 | 120 |
+
+Each feature switches on only when its keys are set:
+
+- **No GitHub OAuth keys:** there is no sign-in button.
+- **No Stripe keys:** billing is off and every Pro feature is free for everyone. That's how local dev and the DurHack demo behave.
+
+How it fits together:
+- Spring Security handles the GitHub login (`/oauth2/authorization/github`) and keeps a session cookie.
+- `GET /api/me` tells the frontend who is signed in and on which plan.
+- `POST /api/billing/checkout` creates a Stripe Checkout session.
+- `POST /api/billing/portal` opens the Stripe Customer Portal, where users can change their card, see invoices or cancel.
+- Stripe tells us about subscription changes through a signed webhook (`POST /api/stripe/webhook`). The plan is never trusted from the browser.
+- All state-changing API calls are CSRF-protected (cookie `XSRF-TOKEN` → header `X-XSRF-TOKEN`). The Stripe webhook is exempt but signature-checked.
+
+### 1. GitHub OAuth app
+
+Create one at GitHub → Settings → Developer settings → **OAuth Apps** → New OAuth App. Make two apps, because each app has a single callback URL:
+
+| | Homepage URL | Authorization callback URL |
+|---|---|---|
+| Local dev | `http://localhost:5173` | `http://localhost:5173/login/oauth2/code/github` |
+| Production | `https://<your-domain>` | `https://<your-domain>/login/oauth2/code/github` |
+
+Put the client ID and a generated client secret in `backend/.env` (local) or `/opt/sonyx/.env` (server):
+
+```
+GITHUB_CLIENT_ID=...
+GITHUB_CLIENT_SECRET=...
+```
+
+### 2. Stripe
+
+1. In the [Stripe dashboard](https://dashboard.stripe.com), stay in **Test mode** at first.
+2. **Product catalogue → Add product:** "Sonyx Pro" with a **recurring** monthly price. Copy the price ID (`price_...`).
+3. **Settings → Billing → Customer portal:** activate it, and allow customers to cancel and update payment methods.
+4. **Developers → API keys:** copy the secret key (`sk_test_...`).
+5. Set up the webhook:
+   - **Locally**, with the [Stripe CLI](https://docs.stripe.com/stripe-cli), run:
+
+     ```bash
+     stripe listen --forward-to localhost:8080/api/stripe/webhook --events customer.subscription.created,customer.subscription.updated,customer.subscription.deleted
+     ```
+
+     It prints a `whsec_...` signing secret.
+   - **In production**, go to Developers → Webhooks → Add endpoint and enter `https://<your-domain>/api/stripe/webhook` with those three `customer.subscription.*` events. Copy its signing secret.
+6. Add to the env file:
+
+   ```
+   STRIPE_SECRET_KEY=sk_test_...
+   STRIPE_PRICE_ID=price_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   STRIPE_PRICE_LABEL=£4.99/month
+   APP_BASE_URL=https://<your-domain>
+   ```
+
+7. To test, sign in, open **Upgrade to Pro** and pay with the card `4242 4242 4242 4242` (any future date, any CVC). You return to Sonyx and the account menu shows **PRO** once the webhook arrives, which takes a few seconds.
+
+Going live means switching the dashboard to live mode, creating the product, price and webhook again there, and replacing the three keys with live ones.
+
+Before charging real customers:
+- Publish terms of service and a privacy policy, and link them from Stripe's public business details.
+- Fill in the Stripe account's business details.
+- Decide on tax: Stripe Tax can calculate VAT.
+
+Notes:
+- Sessions are kept in server memory, so a restart signs everyone out. Subscriptions are safe in the database and Stripe.
+- `ALLOWED_ORIGINS` (comma-separated) is only needed if another site must open the WebSocket. Same-origin always works.
 
 ## Running locally
 
@@ -169,6 +249,14 @@ One Docker image (Vite build bundled into the Spring Boot jar) behind Caddy, whi
    DATABASE_URL=postgres://tsdbadmin:<password>@<host>:<port>/tsdb?sslmode=require
    # Optional: Gemini file explanations (free key from aistudio.google.com)
    GEMINI_API_KEY=your_key_here
+   # Optional: accounts and payments, see "Accounts and Sonyx Pro"
+   GITHUB_CLIENT_ID=...
+   GITHUB_CLIENT_SECRET=...
+   STRIPE_SECRET_KEY=sk_live_...
+   STRIPE_PRICE_ID=price_...
+   STRIPE_WEBHOOK_SECRET=whsec_...
+   STRIPE_PRICE_LABEL=£4.99/month
+   APP_BASE_URL=https://<ip-with-dashes>.nip.io
    ```
 
    `cd /opt/sonyx && docker compose up -d`, then open `https://<ip-with-dashes>.nip.io`. To update, repeat step 3 and run `docker compose up -d` again.

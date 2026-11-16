@@ -26,6 +26,8 @@ import java.util.regex.Pattern;
 public class GitHubAnalyzerService {
 
     static final int MAX_CODE_FILES = 48;
+    /** Pro subscribers get bigger repositories analysed. */
+    public static final int PRO_MAX_CODE_FILES = 120;
     static final int MAX_CONFIG_FILES = 8;
     static final int MAX_DOC_FILES = 6;
     private static final int MAX_CONCURRENT_FETCHES = 12;
@@ -79,6 +81,11 @@ public class GitHubAnalyzerService {
     }
 
     public void analyzeAndStream(String repoUrl, Consumer<ComposeEvent> emit) {
+        analyzeAndStream(repoUrl, MAX_CODE_FILES, emit);
+    }
+
+    /** @param maxCodeFiles how many of the largest source files to analyse (more for Pro). */
+    public void analyzeAndStream(String repoUrl, int maxCodeFiles, Consumer<ComposeEvent> emit) {
         try {
             String[] parts = parseOwnerRepo(repoUrl);
             String owner = parts[0], repo = parts[1];
@@ -114,7 +121,7 @@ public class GitHubAnalyzerService {
             docs.sort(byShallowThenSize);
 
             List<JsonNode> selected = new ArrayList<>();
-            selected.addAll(code.stream().limit(MAX_CODE_FILES).toList());
+            selected.addAll(code.stream().limit(maxCodeFiles).toList());
             selected.addAll(config.stream().limit(MAX_CONFIG_FILES).toList());
             selected.addAll(docs.stream().limit(MAX_DOC_FILES).toList());
 
@@ -127,7 +134,7 @@ public class GitHubAnalyzerService {
                 initialNodes.add(new FileNode(path, path, dir, depth, approxLoc, 1, 0, 0, classifyRole(path), false));
             }
 
-            int sampledCode = Math.min(code.size(), MAX_CODE_FILES);
+            int sampledCode = Math.min(code.size(), maxCodeFiles);
             emit.accept(new ComposeEvent.RepoTree(owner + "/" + repo, branch, bpm, stars, code.size(), sampledCode,
                     treeRoot.path("truncated").asBoolean(false), initialNodes));
 
