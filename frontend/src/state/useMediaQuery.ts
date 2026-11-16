@@ -16,5 +16,5 @@ export function useMediaQuery(query: string): boolean {
 /** Phones and small tablets, in portrait or landscape. Keep in sync with the CSS breakpoint in index.css. */
 export const COMPACT_QUERY = '(max-width: 760px), (max-height: 520px)';
 
-/** Touch-first devices get a lighter renderer (lower pixel ratio, no MSAA). */
+/** Touch-first devices (phones, tablets). */
 export const isTouchDevice = () => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;

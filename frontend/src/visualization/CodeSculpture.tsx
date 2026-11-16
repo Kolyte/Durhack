@@ -1,11 +1,13 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
+import { PerformanceMonitor } from '@react-three/drei';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
 import type { RepoModel } from '../model/repoModel';
 import type { MetricOverlay, ViewMode } from '../types';
 import { isTouchDevice } from '../state/useMediaQuery';
 import { CameraRig, type TourState } from './CameraRig';
+import { getWindowTexture } from './shapes/geometry';
 import { CityScenery } from './CityScenery';
 import { Ground } from './Ground';
 import { Starfield } from './Starfield';
@@ -33,9 +35,26 @@ interface Props {
   cityPlan: CityPlan | undefined;
 }
 
-// Phones and tablets: a lower pixel ratio and no MSAA keep the frame rate (and the battery) up.
-// Their screens are dense enough that the difference is hard to see.
+// Phones and tablets: fewer background stars.
 const LOW_POWER = isTouchDevice();
+
+/**
+ * Render quality steps, lowest first. We start at the best step this device is allowed and only step
+ * down if the frame rate actually drops (and back up when it recovers). Phones have 3x screens, so a
+ * fixed low pixel ratio with no anti-aliasing looked blurry and jagged there; most phones handle 2x
+ * with MSAA fine.
+ */
+const QUALITY = [
+  { dpr: 1, msaa: 0 },
+  { dpr: 1.25, msaa: 0 },
+  { dpr: 1.5, msaa: 2 },
+  { dpr: 1.5, msaa: 4 },
+  { dpr: 2, msaa: 4 },
+] as const;
+const deviceDpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
+// Desktops keep their previous ceiling (1.5x): big screens at 2x with bloom cost a lot of GPU.
+// Touch devices may go to 2x, which is where their dense screens look sharp.
+const MAX_QUALITY = LOW_POWER && deviceDpr >= 2 ? QUALITY.length - 1 : 3;
 
 const WARM_BRANCH: Layout['branches'] = [{ start: [0, -50, 0], end: [0, -49, 0], radius: 0.01, depth: 0 }];
 
@@ -98,19 +117,30 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
     return out;
   }, [model, overlay]);
 
+  const [quality, setQuality] = useState(MAX_QUALITY);
+  const q = QUALITY[quality];
+
   return (
     <Canvas
       camera={{ position: [14, 12, 18], fov: 48, near: 0.1, far: 600 }}
-      // Capped pixel ratio + modest MSAA: bloom on a full Retina buffer was the biggest GPU cost.
-      dpr={LOW_POWER ? [1, 1.25] : [1, 1.5]}
-      gl={{ antialias: !LOW_POWER, powerPreference: 'high-performance' }}
+      // Pixel ratio and MSAA adapt to the frame rate (see QUALITY). The post-processing pass does the
+      // anti-aliasing, so the default framebuffer doesn't need its own.
+      dpr={Math.min(q.dpr, Math.max(1, deviceDpr))}
+      gl={{ antialias: false, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => {
         // Querying shader logs forces the driver to finish compiling synchronously; skip it in production.
         gl.debug.checkShaderErrors = import.meta.env.DEV;
+        // Sharp building windows at grazing angles (the usual phone viewing angle).
+        getWindowTexture().anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
       }}
       onPointerMissed={() => onSelect(null)}
       style={{ background: PALETTE.bg }}
     >
+      <PerformanceMonitor
+        flipflops={4}
+        onDecline={() => setQuality((v) => Math.max(0, v - 1))}
+        onIncline={() => setQuality((v) => Math.min(MAX_QUALITY, v + 1))}
+      />
       <color attach="background" args={[PALETTE.bg]} />
       <fog attach="fog" args={[PALETTE.bg, layout.radius * 1.2, layout.radius * 4.5]} />
       <ambientLight intensity={0.35} />
@@ -171,7 +201,7 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
 
       <LabelProjector layout={layout} mode={mode} />
       <CameraRig layout={layout} tour={tour} selectedId={selectedId} onInterrupt={onTourInterrupt} />
-      <EffectComposer multisampling={LOW_POWER ? 0 : 4}>
+      <EffectComposer multisampling={q.msaa}>
         <Bloom intensity={0.75} luminanceThreshold={0.55} luminanceSmoothing={0.3} mipmapBlur />
         <Vignette offset={0.25} darkness={0.65} />
       </EffectComposer>

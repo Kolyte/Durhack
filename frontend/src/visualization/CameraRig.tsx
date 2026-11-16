@@ -29,7 +29,10 @@ function framePosition(bounds: Layout['bounds'], mode: Layout['mode'], camera: T
   // Use the narrower of the vertical/horizontal FOV; UI panels cover part of the screen, hence the margin.
   const half = Math.min(fov / 2, Math.atan(Math.tan(fov / 2) * aspect));
   const dist = (bounds.radius / Math.sin(half)) * FIT[mode];
-  framed.set(dir[0], dir[1], dir[2]).normalize().applyAxisAngle(THREE.Object3D.DEFAULT_UP, angle).multiplyScalar(dist);
+  // Portrait phones: width is the limit, so the scene left a band of empty sky. Looking down more
+  // steeply makes the city's depth fill the tall screen (bigger, clearer buildings, nothing cropped).
+  const lift = mode === 'tree' ? 1 : 1 + Math.min(0.8, Math.max(0, 1 - aspect) * 1.6);
+  framed.set(dir[0], dir[1] * lift, dir[2]).normalize().applyAxisAngle(THREE.Object3D.DEFAULT_UP, angle).multiplyScalar(dist);
   return framed.add(tmp.set(...bounds.center));
 }
 const desiredTarget = new THREE.Vector3();
