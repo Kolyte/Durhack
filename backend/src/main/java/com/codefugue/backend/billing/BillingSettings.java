@@ -15,18 +15,31 @@ public class BillingSettings {
     private final String webhookSecret;
     private final String priceLabel;
     private final String appBaseUrl;
+    private final String currency;
 
     public BillingSettings(
             @Value("${STRIPE_SECRET_KEY:}") String secretKey,
             @Value("${STRIPE_PRICE_ID:}") String priceId,
             @Value("${STRIPE_WEBHOOK_SECRET:}") String webhookSecret,
             @Value("${STRIPE_PRICE_LABEL:}") String priceLabel,
-            @Value("${APP_BASE_URL:}") String appBaseUrl) {
+            @Value("${APP_BASE_URL:}") String appBaseUrl,
+            @Value("${SHOP_CURRENCY:gbp}") String currency) {
         this.secretKey = secretKey.trim();
         this.priceId = priceId.trim();
         this.webhookSecret = webhookSecret.trim();
         this.priceLabel = priceLabel.trim();
         this.appBaseUrl = appBaseUrl.trim().replaceAll("/+$", "");
+        this.currency = currency.trim().isEmpty() ? "gbp" : currency.trim().toLowerCase();
+    }
+
+    /** One-time payments (the shop) need only the secret key and the webhook secret. */
+    public boolean paymentsEnabled() {
+        return !secretKey.isEmpty() && !webhookSecret.isEmpty();
+    }
+
+    /** Currency for shop prices (ISO code, lower case), default gbp. */
+    public String currency() {
+        return currency;
     }
 
     public boolean enabled() {

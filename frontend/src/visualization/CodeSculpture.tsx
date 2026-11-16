@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Canvas, useThree } from '@react-three/fiber';
+import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
 import * as THREE from 'three';
@@ -13,6 +13,11 @@ import { Ground } from './Ground';
 import { Starfield } from './Starfield';
 import { GalaxyWorld } from './worlds/GalaxyWorld';
 import { TreeWorld } from './worlds/TreeWorld';
+import { CityWorld } from './worlds/CityWorld';
+import { skinDef, styleId, worldDef, type SkinDef } from '../cosmetics/catalog';
+import { windowTexture } from '../cosmetics/windows';
+import { activeLook, shopStore } from '../state/shop';
+import { useStoreSelector } from '../state/store';
 import { ShootingStars } from './ShootingStars';
 import { LabelProjector } from './HubLabels';
 import type { CityPlan, Layout } from './layouts';
@@ -57,6 +62,21 @@ const deviceDpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio ||
 // Desktops keep their previous ceiling (1.5x): big screens at 2x with bloom cost a lot of GPU.
 // Touch devices may go to 2x, which is where their dense screens look sharp.
 const MAX_QUALITY = LOW_POWER && deviceDpr >= 2 ? QUALITY.length - 1 : 3;
+
+/** Maps 0–1 onto a list of colours (a skin's own ramp). */
+function rampFrom(colors: THREE.Color[], t: number): THREE.Color {
+  const x = Math.max(0, Math.min(1, t)) * (colors.length - 1);
+  const i = Math.min(colors.length - 2, Math.floor(x));
+  return colors[i].clone().lerp(colors[i + 1], x - i);
+}
+
+/** Animated skins (the Matrix code rain scrolls down the façades). */
+function SkinAnimator({ skin }: { skin: SkinDef }) {
+  useFrame((_, delta) => {
+    if (skin.scroll) windowTexture(skin.windows).offset.y += delta * skin.scroll;
+  });
+  return null;
+}
 
 const WARM_BRANCH: Layout['branches'] = [{ start: [0, -50, 0], end: [0, -49, 0], radius: 0.01, depth: 0 }];
 
@@ -109,15 +129,27 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
     [selected],
   );
 
+  // The look from the shop (saved, or being tried on). Skins, styles and worlds apply to Code City.
+  const skinId = useStoreSelector(shopStore, (s) => activeLook(s).skin);
+  const style = styleId(useStoreSelector(shopStore, (s) => activeLook(s).style));
+  const worldId = useStoreSelector(shopStore, (s) => activeLook(s).world);
+  const skin = skinDef(skinId);
+  const world = worldDef(worldId);
+  const city = mode === 'city';
+  const ramp = city ? skin.ramp : null;
+
   const colors = useMemo(() => {
     const out = new Map<string, { color: THREE.Color; metric: number }>();
+    const custom = ramp?.map((c) => new THREE.Color(c));
     for (const f of model.files.values()) {
       const metric = metricValue(f, overlay, model);
-      const tint = overlay === 'complexity' ? ROLE_TINT[f.kind] : undefined;
-      out.set(f.id, { color: tint ? new THREE.Color(tint) : rampColor(metric), metric });
+      const tint = !custom && overlay === 'complexity' ? ROLE_TINT[f.kind] : undefined;
+      out.set(f.id, { color: tint ? new THREE.Color(tint) : custom ? rampFrom(custom, metric) : rampColor(metric), metric });
     }
     return out;
-  }, [model, overlay]);
+  }, [model, overlay, ramp]);
+  const bg = city ? world.background : PALETTE.bg;
+  const fogColor = city ? world.fog : PALETTE.bg;
 
   const [quality, setQuality] = useState(MAX_QUALITY);
   const q = QUALITY[quality];
@@ -136,24 +168,28 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
         getWindowTexture().anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
       }}
       onPointerMissed={() => onSelect(null)}
-      style={{ background: PALETTE.bg }}
+      style={{ background: bg }}
     >
       <PerformanceMonitor
         flipflops={4}
         onDecline={() => setQuality((v) => Math.max(0, v - 1))}
         onIncline={() => setQuality((v) => Math.min(MAX_QUALITY, v + 1))}
       />
-      <color attach="background" args={[PALETTE.bg]} />
-      <fog attach="fog" args={[PALETTE.bg, layout.radius * 1.2, layout.radius * 4.5]} />
+      <color attach="background" args={[bg]} />
+      <fog attach="fog" args={[fogColor, layout.radius * 1.2, layout.radius * (city && world.sky ? 6 : 4.5)]} />
       <ambientLight intensity={0.35} />
       <hemisphereLight args={['#7dd3fc', '#1e1b4b', 0.35]} />
       <pointLight position={[layout.radius, layout.radius, layout.radius]} intensity={60} distance={layout.radius * 5} color={PALETTE.teal} />
       <pointLight position={[-layout.radius, layout.radius * 0.6, -layout.radius]} intensity={45} distance={layout.radius * 5} color={PALETTE.pink} />
 
-      <Starfield count={LOW_POWER ? 5000 : 12000} />
+      <group visible={!city || world.stars}>
+        <Starfield count={LOW_POWER ? 5000 : 12000} />
+      </group>
+      <CityWorld world={world} visible={city} radius={layout.mode === 'city' ? layout.radius : 12} lowPower={LOW_POWER} />
+      <SkinAnimator skin={skin} />
       <ShootingStars />
       <Ground mode={mode} radius={layout.radius} />
-      <CityScenery plan={cityPlan} visible={mode === 'city'} />
+      <CityScenery plan={cityPlan} visible={mode === 'city'} world={world} />
       <GalaxyWorld visible={mode === 'galaxy'} radius={layout.mode === 'galaxy' ? layout.radius : 12} lowPower={LOW_POWER} />
       <TreeWorld visible={mode === 'tree'} radius={layout.mode === 'tree' ? layout.radius : 10} height={layout.mode === 'tree' ? layout.center[1] * 2 : 8} lowPower={LOW_POWER} />
       {/* Always mounted (one hidden twig outside the tree view) so the bark shader stays compiled. */}
@@ -185,7 +221,19 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
               ? 'related'
               : 'dim';
         return (
-          <FileShape key={f.id} file={f} layout={l} mode={mode} color={c.color} metric={c.metric} emphasis={emphasis} onSelect={onSelect} onHover={onHover} />
+          <FileShape
+            key={f.id}
+            file={f}
+            layout={l}
+            mode={mode}
+            color={c.color}
+            metric={c.metric}
+            emphasis={emphasis}
+            onSelect={onSelect}
+            onHover={onHover}
+            skin={skin}
+            style={style}
+          />
         );
       })}
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { accountStore, manageSubscription, openPricing, signIn, signOut } from '../state/account';
 import { useStore } from '../state/store';
+import { openShop } from '../state/shop';
 
 const GITHUB_ICON = (
   <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true" fill="currentColor">
@@ -61,6 +62,12 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
               Manage subscription
             </button>
           )}
+          <button role="menuitem" className="btn btn--ghost btn--block" onClick={() => (setOpen(false), openShop())}>
+            🛍️ Shop
+          </button>
+          <a role="menuitem" className="btn btn--ghost btn--block" href={`/wrapped.html?u=${encodeURIComponent(me.login ?? '')}`}>
+            🎧 Your Sonyx Wrapped
+          </a>
           <button role="menuitem" className="btn btn--ghost btn--block" onClick={() => (setOpen(false), void signOut())}>
             Sign out
           </button>

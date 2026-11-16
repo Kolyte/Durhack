@@ -4,11 +4,9 @@ import com.codefugue.backend.account.AppUser;
 import com.codefugue.backend.account.UserRepository;
 import org.junit.jupiter.api.Test;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
+import com.codefugue.backend.shop.ShopService;
+
 import java.time.Instant;
-import java.util.HexFormat;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -23,10 +21,11 @@ import static org.mockito.Mockito.when;
 class BillingServiceTest {
 
     private static final String WEBHOOK_SECRET = "whsec_test_secret";
-    private final BillingSettings settings = new BillingSettings("sk_test_x", "price_123", WEBHOOK_SECRET, "£4 / month", "");
+    private final BillingSettings settings = new BillingSettings("sk_test_x", "price_123", WEBHOOK_SECRET, "£4 / month", "", "gbp");
     private final StripeGateway stripe = mock(StripeGateway.class);
     private final UserRepository users = mock(UserRepository.class);
-    private final BillingService billing = new BillingService(settings, stripe, users);
+    private final ShopService shop = mock(ShopService.class);
+    private final BillingService billing = new BillingService(settings, stripe, users, shop);
 
     private static AppUser user(String customer, String status) {
         return new AppUser(7, 42, "octocat", "Octo Cat", null, "octo@example.com", customer, null, status, null);
@@ -34,10 +33,7 @@ class BillingServiceTest {
 
     /** Signs a payload exactly like Stripe does: v1 = HMAC-SHA256(secret, "t.payload"). */
     private static String sign(String payload, long t) throws Exception {
-        Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(WEBHOOK_SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        String sig = HexFormat.of().formatHex(mac.doFinal((t + "." + payload).getBytes(StandardCharsets.UTF_8)));
-        return "t=" + t + ",v1=" + sig;
+        return StripeSignatures.sign(WEBHOOK_SECRET, payload, t);
     }
 
     private static String subscriptionEvent(String type, String status) {
@@ -99,7 +95,7 @@ class BillingServiceTest {
 
     @Test
     void everythingIsDisabledWithoutKeys() {
-        BillingService off = new BillingService(new BillingSettings("", "", "", "", ""), stripe, users);
+        BillingService off = new BillingService(new BillingSettings("", "", "", "", "", ""), stripe, users, shop);
         assertEquals(503, assertThrows(BillingException.class, () -> off.checkoutUrl(user(null, null), "x")).status());
         assertEquals(503, assertThrows(BillingException.class, () -> off.handleWebhook("{}", "")).status());
     }

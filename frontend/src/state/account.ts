@@ -42,8 +42,11 @@ export async function loadMe(): Promise<Me> {
 
 const AFTER_LOGIN = 'sonyx.afterLogin';
 
-/** Full-page redirect to GitHub. `then` = "upgrade" reopens the pricing dialog when we come back. */
-export function signIn(then?: 'upgrade') {
+/** What to reopen after coming back from GitHub sign-in. */
+export type AfterLogin = 'upgrade' | 'shop' | 'wrapped';
+
+/** Full-page redirect to GitHub. `then` reopens the pricing dialog / shop / Wrapped when we come back. */
+export function signIn(then?: AfterLogin) {
   try {
     if (then) localStorage.setItem(AFTER_LOGIN, then);
   } catch {
@@ -107,7 +110,7 @@ export async function manageSubscription() {
  * On page load: fetch the account, then handle returns from GitHub sign-in and Stripe Checkout.
  * After a successful checkout the webhook may arrive a moment later, so poll briefly until Pro shows up.
  */
-export async function initAccount() {
+export async function initAccount(): Promise<string | null> {
   const me = await loadMe();
   const params = new URLSearchParams(window.location.search);
   const checkout = params.get('checkout');
@@ -133,4 +136,5 @@ export async function initAccount() {
     /* ignore */
   }
   if (next === 'upgrade' && me.signedIn && !me.pro && me.billingEnabled) openPricing();
+  return me.signedIn ? next : null;
 }

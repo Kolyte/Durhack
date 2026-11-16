@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { COMPACT_QUERY, useMediaQuery } from '../state/useMediaQuery';
 import type { Phase } from '../state/useComposeStream';
 import { AccountMenu } from './AccountMenu';
+import { openShop } from '../state/shop';
 
 /** "github.com/a/b", "a/b" or a full URL → a full https URL the backend understands. */
 function normalizeRepoUrl(raw: string): string {
@@ -67,6 +68,9 @@ export function RepoInput({
         <a className="chip nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
           🏆
         </a>
+        <button className="chip nav-button" onClick={openShop} aria-label="Shop" title="Shop">
+          🛍️
+        </button>
         <AccountMenu compact />
         <button className="chip" onClick={() => setExpanded(true)} aria-label="Change repository">
           Change
@@ -119,6 +123,9 @@ export function RepoInput({
       <a className="btn btn--accent nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
         🏆<span className="nav-button__label"> Leaderboard</span>
       </a>
+      <button className="btn btn--ghost nav-button shop-button" onClick={openShop} aria-label="Shop" title="Shop">
+        🛍️<span className="nav-button__label"> Shop</span>
+      </button>
       <AccountMenu />
     </header>
   );

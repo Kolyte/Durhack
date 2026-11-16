@@ -2,6 +2,7 @@ package com.codefugue.backend.billing;
 
 import com.codefugue.backend.account.AppUser;
 import com.codefugue.backend.account.UserRepository;
+import com.codefugue.backend.shop.ShopService;
 import com.stripe.exception.EventDataObjectDeserializationException;
 import com.stripe.exception.SignatureVerificationException;
 import com.stripe.model.Event;
@@ -9,6 +10,7 @@ import com.stripe.model.EventDataObjectDeserializer;
 import com.stripe.model.StripeObject;
 import com.stripe.model.Subscription;
 import com.stripe.model.SubscriptionItem;
+import com.stripe.model.checkout.Session;
 import com.stripe.net.Webhook;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,11 +33,13 @@ public class BillingService {
     private final BillingSettings settings;
     private final StripeGateway stripe;
     private final UserRepository users;
+    private final ShopService shop;
 
-    public BillingService(BillingSettings settings, StripeGateway stripe, UserRepository users) {
+    public BillingService(BillingSettings settings, StripeGateway stripe, UserRepository users, ShopService shop) {
         this.settings = settings;
         this.stripe = stripe;
         this.users = users;
+        this.shop = shop;
         if (settings.enabled()) log.info("Billing enabled (Stripe): Pro features require a subscription");
         else log.info("Billing disabled: set STRIPE_SECRET_KEY, STRIPE_PRICE_ID and STRIPE_WEBHOOK_SECRET to enable it."
                 + " Until then Pro features are open to everyone.");
@@ -76,9 +80,11 @@ public class BillingService {
         return id;
     }
 
-    /** Verifies the Stripe-Signature header and applies subscription changes. */
+    /** Verifies the Stripe-Signature header, then applies subscription changes and shop purchases. */
     public void handleWebhook(String payload, String signatureHeader) {
-        requireEnabled();
+        if (!settings.paymentsEnabled()) {
+            throw new BillingException(503, "billing_disabled", "Payments are not set up on this server");
+        }
         Event event;
         try {
             event = Webhook.constructEvent(payload, signatureHeader, settings.webhookSecret());
@@ -95,6 +101,8 @@ public class BillingService {
                 log.info("Stripe {}: customer {} → {}{}", event.getType(), sub.getCustomer(), status,
                         matched ? "" : " (no matching user)");
             }
+            case "checkout.session.completed", "checkout.session.async_payment_succeeded" ->
+                    shop.fulfil((Session) dataObject(event));
             default -> log.debug("Ignoring Stripe event {}", event.getType());
         }
     }

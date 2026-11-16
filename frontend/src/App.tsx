@@ -9,6 +9,8 @@ import { PlaybackControls } from './components/PlaybackControls';
 import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
 import { Toast } from './components/Toast';
+import { ShopPanel } from './components/ShopPanel';
+import { initShop, shopStore } from './state/shop';
 import { initAccount } from './state/account';
 import { TourGuide } from './components/TourGuide';
 import { ViewControls } from './components/ViewControls';
@@ -26,6 +28,11 @@ import { HubLabelLayer } from './visualization/HubLabels';
 export default function App() {
   const { nodes, edges, meta, phase, status, compose } = useComposeStream();
   const [mode, setMode] = useState<ViewMode>('city');
+  // Trying on or equipping a shop item shows Code City, where skins, buildings and worlds apply.
+  const showCity = useStoreSelector(shopStore, (s) => s.showCity);
+  useEffect(() => {
+    if (showCity) setMode('city');
+  }, [showCity]);
   const [overlay, setOverlay] = useState<MetricOverlay>('complexity');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tour, setTour] = useState<TourState>('off');
@@ -55,7 +62,7 @@ export default function App() {
   );
   const layout = otherLayout ?? cityLayout;
 
-  useEffect(() => void initAccount(), []);
+  useEffect(() => void initAccount().then(initShop), []);
   useEffect(() => audioEngine.setModel(model, dna), [model, dna]);
 
   // When analysis finishes, switch from the "listening" intro to the full composition.
@@ -226,6 +233,7 @@ export default function App() {
         repoName={meta?.repoName}
       />
       <PricingModal />
+      <ShopPanel />
       <Toast />
 
       {/* One FileInspector for both layouts (on phones the CSS turns it into a bottom sheet). */}

@@ -12,12 +12,14 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.Map;
 import java.util.Optional;
 
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oauth2Login;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -74,6 +76,23 @@ class SecurityRulesTest {
         @Test
         void stripeWebhookIsNotBlockedByCsrf() throws Exception {
             mvc.perform(post("/api/stripe/webhook").content("{}")).andExpect(status().isServiceUnavailable());
+        }
+
+        @Test
+        void shopCatalogueIsPublicAndUnlockedInDemoMode() throws Exception {
+            mvc.perform(get("/api/shop")).andExpect(status().isOk())
+                    .andExpect(jsonPath("$.demo", is(true)))
+                    .andExpect(jsonPath("$.items[?(@.id == 'skin.matrix')].owned", contains(true)));
+        }
+
+        @Test
+        void shopPurchasesAndLoadoutNeedSignIn() throws Exception {
+            mvc.perform(post("/api/shop/checkout").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"itemId\":\"skin.gold\"}"))
+                    .andExpect(status().isUnauthorized());
+            mvc.perform(put("/api/shop/loadout").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{}"))
+                    .andExpect(status().isUnauthorized());
+            mvc.perform(post("/api/shop/checkout").contentType(MediaType.APPLICATION_JSON).content("{\"itemId\":\"skin.gold\"}"))
+                    .andExpect(status().isForbidden()); // no CSRF token
         }
     }
 

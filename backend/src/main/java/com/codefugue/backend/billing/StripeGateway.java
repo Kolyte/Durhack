@@ -12,6 +12,13 @@ public interface StripeGateway {
     String createCheckoutSession(String customerId, String priceId, String successUrl, String cancelUrl,
                                  String clientReferenceId) throws Exception;
 
+    /**
+     * Creates a one-time payment Checkout Session for a single item with an inline price; returns its URL.
+     * The metadata is copied onto the session so the webhook knows what was bought, and by whom.
+     */
+    String createPaymentCheckout(String customerId, String productName, String description, long amount, String currency,
+                                 String successUrl, String cancelUrl, java.util.Map<String, String> metadata) throws Exception;
+
     /** Creates a Customer Portal session (manage card, cancel, invoices); returns its URL. */
     String createPortalSession(String customerId, String returnUrl) throws Exception;
 }

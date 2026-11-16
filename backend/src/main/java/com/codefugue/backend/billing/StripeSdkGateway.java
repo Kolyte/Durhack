@@ -48,6 +48,32 @@ public class StripeSdkGateway implements StripeGateway {
     }
 
     @Override
+    public String createPaymentCheckout(String customerId, String productName, String description, long amount,
+                                        String currency, String successUrl, String cancelUrl,
+                                        java.util.Map<String, String> metadata) throws Exception {
+        SessionCreateParams params = SessionCreateParams.builder()
+                .setMode(SessionCreateParams.Mode.PAYMENT)
+                .setCustomer(customerId)
+                .addLineItem(SessionCreateParams.LineItem.builder()
+                        .setQuantity(1L)
+                        .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
+                                .setCurrency(currency)
+                                .setUnitAmount(amount)
+                                .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
+                                        .setName(productName)
+                                        .setDescription(description)
+                                        .build())
+                                .build())
+                        .build())
+                .putAllMetadata(metadata)
+                .setSuccessUrl(successUrl)
+                .setCancelUrl(cancelUrl)
+                .setAllowPromotionCodes(true)
+                .build();
+        return client().v1().checkout().sessions().create(params).getUrl();
+    }
+
+    @Override
     public String createPortalSession(String customerId, String returnUrl) throws Exception {
         var params = com.stripe.param.billingportal.SessionCreateParams.builder()
                 .setCustomer(customerId)

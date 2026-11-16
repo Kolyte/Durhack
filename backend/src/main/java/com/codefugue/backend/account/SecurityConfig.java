@@ -33,7 +33,8 @@ public class SecurityConfig {
                                             LoginSuccessHandler onLogin) throws Exception {
         http
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/billing/checkout", "/api/billing/portal").authenticated()
+                        .requestMatchers("/api/billing/checkout", "/api/billing/portal", "/api/shop/checkout", "/api/shop/loadout")
+                        .authenticated()
                         .anyRequest().permitAll())
                 .csrf(csrf -> csrf.spa().ignoringRequestMatchers("/api/stripe/webhook"))
                 // APIs answer 401 instead of redirecting to a login page.

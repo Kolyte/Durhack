@@ -6,8 +6,10 @@ import type { ViewMode } from '../../types';
 import type { FileLayout } from '../layouts';
 import { livePositions, pulses, readDecay } from '../pulseBus';
 import { complexityLevel } from '../../audio/composer';
-import { bodyMapFor, getWhiteTexture, getWindowTexture, shapeFor } from './geometry';
+import { bodyMapFor, getWhiteTexture, shapeFor } from './geometry';
 import { createGlowMaterial } from './glow';
+import type { SkinDef, StyleId } from '../../cosmetics/catalog';
+import { windowTexture } from '../../cosmetics/windows';
 
 interface Props {
   file: FileInfo;
@@ -20,6 +22,9 @@ interface Props {
   emphasis: 'normal' | 'selected' | 'related' | 'dim';
   onSelect: (id: string) => void;
   onHover: (id: string | null, x: number, y: number) => void;
+  /** Code City look from the shop. */
+  skin: SkinDef;
+  style: StyleId;
 }
 
 const DARK = new THREE.Color('#0b1226');
@@ -31,7 +36,7 @@ const tmpColor = new THREE.Color();
 const tmpVec = new THREE.Vector3();
 
 /** One file. Its geometry depends on its role (source, module, config, test, docs) and the view mode. */
-export const FileShape = memo(function FileShape({ file, layout, mode, color, metric, emphasis, onSelect, onHover }: Props) {
+export const FileShape = memo(function FileShape({ file, layout, mode, color, metric, emphasis, onSelect, onHover, skin, style }: Props) {
   const outer = useRef<THREE.Group>(null);
   const inner = useRef<THREE.Group>(null);
   const spinners = useRef(new Set<THREE.Mesh>());
@@ -48,8 +53,8 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
   const cxBucket = Math.round(complexityLevel(file.complexity) * 8) / 8;
   const concurrent = file.concurrency > 0;
   const recipe = useMemo(
-    () => shapeFor(file.kind, mode, h, s, footprint, { complexity: cxBucket, concurrent }),
-    [file.kind, mode, h, s, footprint, cxBucket, concurrent],
+    () => shapeFor(file.kind, mode, h, s, footprint, { complexity: cxBucket, concurrent }, style),
+    [file.kind, mode, h, s, footprint, cxBucket, concurrent, style],
   );
   useEffect(() => () => recipe.parts.forEach((p) => p.geometry.dispose()), [recipe]);
 
@@ -67,10 +72,11 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
   );
   useEffect(() => {
     const { body } = materials;
-    body.emissiveMap = mode === 'city' ? getWindowTexture() : (bodyMapFor(file.kind, mode, cxBucket) ?? getWhiteTexture());
-    body.roughness = mode === 'city' ? 0.55 : mode === 'galaxy' ? 0.75 : 0.45;
-    body.metalness = mode === 'city' ? 0.5 : mode === 'galaxy' ? 0.05 : 0.2;
-  }, [materials, mode, file.kind, cxBucket]);
+    body.emissiveMap = mode === 'city' ? windowTexture(skin.windows) : (bodyMapFor(file.kind, mode, cxBucket) ?? getWhiteTexture());
+    body.roughness = mode === 'city' ? skin.roughness : mode === 'galaxy' ? 0.75 : 0.45;
+    body.metalness = mode === 'city' ? skin.metalness : mode === 'galaxy' ? 0.05 : 0.2;
+  }, [materials, mode, file.kind, cxBucket, skin]);
+  const wall = useMemo(() => (skin.wall ? new THREE.Color(skin.wall) : null), [skin]);
   const matRef = useRef(materials);
   useEffect(() => {
     matRef.current = materials;
@@ -125,10 +131,12 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
 
     // City façades: dark walls, windows lit in the metric colour (they flash when the note plays).
     // Elsewhere: a darker body with an emissive glow.
-    tmpColor.copy(color).lerp(DARK, dim ? 0.9 : mode === 'city' ? 0.8 : 0.45);
+    const city = mode === 'city';
+    if (city && wall) tmpColor.copy(wall).lerp(DARK, dim ? 0.85 : 0);
+    else tmpColor.copy(color).lerp(DARK, dim ? 0.9 : city ? 0.8 : 0.45);
     body.color.copy(tmpColor);
     body.emissive.copy(color);
-    body.emissiveIntensity = mode === 'city' ? glow * 2.2 + 0.25 : glow;
+    body.emissiveIntensity = city ? (glow * 2.2 + 0.25) * skin.glow : glow;
     accent.color.copy(color).lerp(DARK, dim ? 0.8 : 0.2);
     accent.emissive.copy(color);
     accent.emissiveIntensity = dim ? 0.1 : glow * 1.2 + 0.25;

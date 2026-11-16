@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { StyleId } from '../../cosmetics/catalog';
+import { styledCity } from './styles';
 import type { FileInfo } from '../../model/repoModel';
 import type { ViewMode } from '../../types';
 
@@ -188,7 +190,7 @@ export function bodyMapFor(kind: FileInfo['kind'], mode: ViewMode, complexity: n
 }
 
 /** Box whose side UVs are in "window units" (so window size is constant), roofs mapped to black. */
-function windowedBox(w: number, h: number, d: number): THREE.BufferGeometry {
+export function windowedBox(w: number, h: number, d: number): THREE.BufferGeometry {
   const g = new THREE.BoxGeometry(w, h, d);
   const uv = g.attributes.uv as THREE.BufferAttribute;
   // Face order: +x, -x, +y, -y, +z, -z (4 vertices each).
@@ -206,7 +208,7 @@ function windowedBox(w: number, h: number, d: number): THREE.BufferGeometry {
 }
 
 /** Cylinder with window-unit UVs on its side and dark caps. */
-function windowedCylinder(rTop: number, rBottom: number, h: number, segments: number): THREE.BufferGeometry {
+export function windowedCylinder(rTop: number, rBottom: number, h: number, segments: number): THREE.BufferGeometry {
   const g = new THREE.CylinderGeometry(rTop, rBottom, h, segments, 1, false);
   const uv = g.attributes.uv as THREE.BufferAttribute;
   const sideVerts = (segments + 1) * 2;
@@ -265,22 +267,23 @@ export function shapeFor(
   s: number,
   footprint: number,
   traits: BuildingTraits = { complexity: 0.3, concurrent: false },
+  style: StyleId = 'style.classic',
 ): ShapeRecipe {
-  if (mode === 'city') return cityShape(kind, h, footprint, traits);
+  if (mode === 'city') return styledCity(style, kind, h, footprint, traits) ?? cityShape(kind, h, footprint, traits);
   if (mode === 'tree') return treeShape(kind, s);
   return galaxyShape(kind, s, traits.complexity, traits.concurrent);
 }
 
-const box = (w: number, h: number, d: number, y: number, mat: Part['mat'] = 'body', x = 0, z = 0): Part => ({
+export const box = (w: number, h: number, d: number, y: number, mat: Part['mat'] = 'body', x = 0, z = 0): Part => ({
   geometry: mat === 'body' ? windowedBox(w, h, d) : new THREE.BoxGeometry(w, h, d),
   mat,
   position: [x, y + h / 2, z],
 });
 
 /** A glowing band around the top of a block (roof parapet / setback crown). */
-const crown = (w: number, d: number, y: number): Part => ({ geometry: new THREE.BoxGeometry(w * 1.03, 0.05, d * 1.03), mat: 'accent', position: [0, y, 0] });
+export const crown = (w: number, d: number, y: number): Part => ({ geometry: new THREE.BoxGeometry(w * 1.03, 0.05, d * 1.03), mat: 'accent', position: [0, y, 0] });
 
-function withBeacon(recipe: ShapeRecipe, traits: BuildingTraits): ShapeRecipe {
+export function withBeacon(recipe: ShapeRecipe, traits: BuildingTraits): ShapeRecipe {
   if (!traits.concurrent) return recipe;
   // Concurrency: a small rooftop beacon on a mast.
   recipe.parts.push(
