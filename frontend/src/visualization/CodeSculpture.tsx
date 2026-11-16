@@ -11,6 +11,8 @@ import { getWindowTexture } from './shapes/geometry';
 import { CityScenery } from './CityScenery';
 import { Ground } from './Ground';
 import { Starfield } from './Starfield';
+import { GalaxyWorld } from './worlds/GalaxyWorld';
+import { TreeWorld } from './worlds/TreeWorld';
 import { ShootingStars } from './ShootingStars';
 import { LabelProjector } from './HubLabels';
 import type { CityPlan, Layout } from './layouts';
@@ -152,6 +154,8 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
       <ShootingStars />
       <Ground mode={mode} radius={layout.radius} />
       <CityScenery plan={cityPlan} visible={mode === 'city'} />
+      <GalaxyWorld visible={mode === 'galaxy'} radius={layout.mode === 'galaxy' ? layout.radius : 12} lowPower={LOW_POWER} />
+      <TreeWorld visible={mode === 'tree'} radius={layout.mode === 'tree' ? layout.radius : 10} height={layout.mode === 'tree' ? layout.center[1] * 2 : 8} lowPower={LOW_POWER} />
       {/* Always mounted (one hidden twig outside the tree view) so the bark shader stays compiled. */}
       <TreeBranches key={mode === 'tree' ? layout.branches.length : 0} branches={mode === 'tree' ? layout.branches : WARM_BRANCH} visible={mode === 'tree'} />
       <ShaderWarmup token={`${model.files.size}-${model.groups.length}`} />

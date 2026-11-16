@@ -6,7 +6,8 @@ import type { ViewMode } from '../../types';
 import type { FileLayout } from '../layouts';
 import { livePositions, pulses, readDecay } from '../pulseBus';
 import { complexityLevel } from '../../audio/composer';
-import { getWhiteTexture, getWindowTexture, shapeFor } from './geometry';
+import { bodyMapFor, getWhiteTexture, getWindowTexture, shapeFor } from './geometry';
+import { createGlowMaterial } from './glow';
 
 interface Props {
   file: FileInfo;
@@ -60,21 +61,23 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
     () => ({
       body: new THREE.MeshStandardMaterial({ emissiveMap: getWhiteTexture(), toneMapped: false }),
       accent: new THREE.MeshStandardMaterial({ roughness: 0.3, metalness: 0.2, toneMapped: false }),
+      glow: createGlowMaterial(),
     }),
     [],
   );
   useEffect(() => {
     const { body } = materials;
-    body.emissiveMap = mode === 'city' ? getWindowTexture() : getWhiteTexture();
-    body.roughness = mode === 'city' ? 0.55 : 0.35;
-    body.metalness = mode === 'city' ? 0.5 : 0.3;
-  }, [materials, mode]);
+    body.emissiveMap = mode === 'city' ? getWindowTexture() : (bodyMapFor(file.kind, mode, cxBucket) ?? getWhiteTexture());
+    body.roughness = mode === 'city' ? 0.55 : mode === 'galaxy' ? 0.75 : 0.45;
+    body.metalness = mode === 'city' ? 0.5 : mode === 'galaxy' ? 0.05 : 0.2;
+  }, [materials, mode, file.kind, cxBucket]);
   const matRef = useRef(materials);
   useEffect(() => {
     matRef.current = materials;
     return () => {
       materials.body.dispose();
       materials.accent.dispose();
+      materials.glow.dispose();
     };
   }, [materials]);
 
@@ -118,7 +121,7 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
     const baseGlow = (0.12 + metric * 0.55) * softness * (file.analyzed ? 1 : 0.35);
     const extra = (emphasis === 'selected' ? 0.9 : emphasis === 'related' ? 0.4 : 0) + (hovered ? 0.3 : 0);
     const glow = (dim ? baseGlow * 0.15 : baseGlow) + pulse * 1.6 + extra;
-    const { body, accent } = matRef.current;
+    const { body, accent, glow: halo } = matRef.current;
 
     // City façades: dark walls, windows lit in the metric colour (they flash when the note plays).
     // Elsewhere: a darker body with an emissive glow.
@@ -129,6 +132,8 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
     accent.color.copy(color).lerp(DARK, dim ? 0.8 : 0.2);
     accent.emissive.copy(color);
     accent.emissiveIntensity = dim ? 0.1 : glow * 1.2 + 0.25;
+    halo.uniforms.uColor.value.copy(color);
+    halo.uniforms.uIntensity.value = dim ? 0.15 : 0.55 + pulse * 1.2 + extra * 0.6;
     // (Dimming is done with colour only: toggling transparency would force a shader recompile.)
   });
 
@@ -164,7 +169,7 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
               return () => void set.delete(m);
             }}
             geometry={p.geometry}
-            material={p.mat === 'body' ? materials.body : materials.accent}
+            material={materials[p.mat]}
             position={p.position ?? ORIGIN}
             rotation={p.rotation ?? ORIGIN}
             scale={p.scale ?? UNIT}

@@ -5,6 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { CityPlan, Rect } from './layouts';
 import { PALETTE } from './palette';
 import { pulses } from './pulseBus';
+import { noRaycast } from './worlds/random';
 
 /**
  * Everything static in Code City except the buildings: asphalt, lane markings, parks with trees,
@@ -154,7 +155,7 @@ export function CityScenery({ plan, visible }: { plan: CityPlan | undefined; vis
   return (
     <group visible={visible}>
       {built.objects.map((o) => (
-        <primitive key={o.uuid} object={o} />
+        <primitive key={o.uuid} object={o} raycast={noRaycast} />
       ))}
     </group>
   );

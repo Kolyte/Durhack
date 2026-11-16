@@ -1,6 +1,7 @@
 import { useMemo, useRef } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
+import { noRaycast } from './worlds/random';
 
 /**
  * A deep-space backdrop for every view: thousands of tiny, faintly twinkling stars on a sky sphere,
@@ -139,7 +140,7 @@ export function Starfield({ count }: { count: number }) {
 
   return (
     <group ref={group}>
-      <points geometry={geometry} material={material} frustumCulled={false} renderOrder={-1} />
+      <points geometry={geometry} material={material} frustumCulled={false} renderOrder={-1} raycast={noRaycast} />
     </group>
   );
 }
