@@ -3,8 +3,10 @@ import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import type { CityPlan, Rect } from './layouts';
+import type { WorldDef } from '../cosmetics/catalog';
 import { PALETTE } from './palette';
 import { pulses } from './pulseBus';
+import { noRaycast } from './worlds/random';
 
 /**
  * Everything static in Code City except the buildings: asphalt, lane markings, parks with trees,
@@ -33,9 +35,25 @@ function createMaterials() {
 }
 const getMats = () => (mats ??= createMaterials());
 
+// Base colours of the animated parts, set from the current world (see applyWorld).
 const LAMP = new THREE.Color('#fde68a');
 const DASH = new THREE.Color('#fde68a');
-const CANOPY_COLORS = ['#14b8a6', '#0d9488', '#2dd4bf', '#5eead4', '#a78bfa'].map((c) => new THREE.Color(c));
+const RAIL = new THREE.Color('#a78bfa');
+
+/** Recolours the shared scenery materials for a world from the shop. Colour changes never recompile shaders. */
+function applyWorld(w: WorldDef) {
+  const m = getMats();
+  m.asphalt.color.set(w.asphalt);
+  m.park.color.set(w.park);
+  m.park.emissive.set(w.parkGlow);
+  m.water.color.set(w.water);
+  m.water.emissive.set(w.waterGlow);
+  LAMP.set(w.lamp);
+  DASH.set(w.lamp);
+  RAIL.set(w.rail);
+  m.rail.color.copy(RAIL);
+  m.rail.emissive.copy(RAIL);
+}
 const GROUND_Y = -0.13;
 
 /** One merged mesh for many boxes (parks, decks, rails). */
@@ -56,7 +74,7 @@ function instanced(geometry: THREE.BufferGeometry, material: THREE.Material, mat
   return mesh;
 }
 
-function buildScenery(plan: CityPlan) {
+function buildScenery(plan: CityPlan, canopyColors: THREE.Color[]) {
   const m = getMats();
   const objects: THREE.Object3D[] = [];
   const add = (o: THREE.Object3D | null) => o && objects.push(o);
@@ -118,7 +136,7 @@ function buildScenery(plan: CityPlan) {
     plan.trees.map(([x, z, s], i) => at(x, GROUND_Y + 0.1 + 0.42 * s, z, i, s)),
   );
   if (canopies) {
-    plan.trees.forEach((_, i) => canopies.setColorAt(i, CANOPY_COLORS[i % CANOPY_COLORS.length]));
+    plan.trees.forEach((_, i) => canopies.setColorAt(i, canopyColors[i % canopyColors.length]));
     canopies.instanceColor!.needsUpdate = true;
     add(canopies);
   }
@@ -134,11 +152,13 @@ function buildScenery(plan: CityPlan) {
   };
 }
 
-export function CityScenery({ plan, visible }: { plan: CityPlan | undefined; visible: boolean }) {
-  // Rebuilt only when the city's shape changes (not on every streamed file metric).
+export function CityScenery({ plan, visible, world }: { plan: CityPlan | undefined; visible: boolean; world: WorldDef }) {
+  // Rebuilt only when the city's shape (or the world's tree colours) changes, not on every streamed metric.
   const signature = plan?.signature ?? '';
+  const canopy = world.canopy.join(',');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const built = useMemo(() => (plan ? buildScenery(plan) : null), [signature]);
+  const built = useMemo(() => (plan ? buildScenery(plan, canopy.split(',').map((c) => new THREE.Color(c))) : null), [signature, canopy]);
+  useEffect(() => applyWorld(world), [world]);
   useEffect(() => () => built?.dispose(), [built]);
 
   useFrame(() => {
@@ -148,13 +168,14 @@ export function CityScenery({ plan, visible }: { plan: CityPlan | undefined; vis
     m.dash.color.copy(DASH).multiplyScalar(0.18 + beat * 0.12);
     m.water.emissiveIntensity = 0.38 + beat * 0.15;
     m.rail.emissiveIntensity = 0.5 + beat * 0.4;
+    m.rail.emissive.copy(RAIL);
   });
 
   if (!built) return null;
   return (
     <group visible={visible}>
       {built.objects.map((o) => (
-        <primitive key={o.uuid} object={o} />
+        <primitive key={o.uuid} object={o} raycast={noRaycast} />
       ))}
     </group>
   );

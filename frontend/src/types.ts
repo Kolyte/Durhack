@@ -29,6 +29,8 @@ export interface RepoMeta {
   totalCodeFiles: number;
   sampledCodeFiles: number;
   treeTruncated: boolean;
+  /** Private repository (analysed with the user's own GitHub token): never ranked or shared. */
+  privateRepo?: boolean;
 }
 
 export type ComposeEvent =

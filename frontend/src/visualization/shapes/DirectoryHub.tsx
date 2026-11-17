@@ -1,12 +1,13 @@
-import { memo, useRef } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Edges } from '@react-three/drei';
+import { Billboard, Edges } from '@react-three/drei';
 import * as THREE from 'three';
 import type { DirGroup } from '../../model/repoModel';
 import type { ViewMode } from '../../types';
 import type { HubLayout } from '../layouts';
 import { PALETTE } from '../palette';
 import { liveHubPositions, pulses, readDecay } from '../pulseBus';
+import { createCoronaMaterial } from './glow';
 
 const HUB_COLORS = [PALETTE.teal, PALETTE.lavender, PALETTE.cyan, PALETTE.pink];
 
@@ -30,7 +31,9 @@ export const DirectoryHub = memo(function DirectoryHub({
   const pos = useRef(new THREE.Vector3(...layout.pos));
   const target = useRef(new THREE.Vector3());
   const color = HUB_COLORS[group.index % HUB_COLORS.length];
-  useFrame((_, delta) => {
+  const corona = useMemo(() => createCoronaMaterial(color), [color]);
+  useEffect(() => () => corona.dispose(), [corona]);
+  useFrame((state, delta) => {
     target.current.set(...layout.pos);
     pos.current.lerp(target.current, 1 - Math.exp(-delta * 2.5));
     ref.current?.position.copy(pos.current);
@@ -42,6 +45,8 @@ export const DirectoryHub = memo(function DirectoryHub({
     if (glow.current) glow.current.emissiveIntensity = base + chord * 0.9 + beat * 0.25;
     if (starGlow.current) starGlow.current.emissiveIntensity = base + 0.3 + chord * 0.9 + beat * 0.1;
     if (halo.current) halo.current.opacity = 0.06 + chord * 0.12 + (active ? 0.05 : 0);
+    corona.uniforms.uIntensity.value = 0.55 + chord * 0.8 + beat * 0.2 + (active ? 0.25 : 0);
+    corona.uniforms.uTime.value = state.clock.elapsedTime;
   });
 
   // Both looks stay mounted and are shown/hidden per view, so their shaders are compiled once and
@@ -65,6 +70,12 @@ export const DirectoryHub = memo(function DirectoryHub({
           <sphereGeometry args={[layout.width * (mode === 'tree' ? 1.8 : 2.4), 24, 16]} />
           <meshBasicMaterial ref={halo} color={color} transparent opacity={0.08} depthWrite={false} blending={THREE.AdditiveBlending} />
         </mesh>
+        {/* Galaxy: each directory is a sun with a corona and light spikes. */}
+        <Billboard visible={mode === 'galaxy'}>
+          <mesh material={corona} scale={layout.width * 9} raycast={() => null}>
+            <planeGeometry />
+          </mesh>
+        </Billboard>
       </group>
     </group>
   );

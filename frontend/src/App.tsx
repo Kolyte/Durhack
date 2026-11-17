@@ -1,12 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { submitRanking } from './api/rankings';
 import { audioEngine, engineStore } from './audio/AudioEngine';
+import { PRESETS, type PresetId } from './audio/presets';
 import { FileInspector } from './components/FileInspector';
 import { HoverTooltip } from './components/HoverTooltip';
 import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
+import { EmbedBar, IS_EMBED } from './components/EmbedBar';
+import { HeroPicks } from './components/HeroPicks';
+import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
+import { Toast } from './components/Toast';
+import { ShopPanel } from './components/ShopPanel';
+import { HistoryPanel } from './components/HistoryPanel';
+import { closeHistory, openHistory } from './state/history';
+import { RecordingIndicator } from './components/RecordButton';
+import { initShop, shopStore } from './state/shop';
+import { initAccount } from './state/account';
 import { TourGuide } from './components/TourGuide';
 import { ViewControls } from './components/ViewControls';
 import { computeCodeDna } from './model/codeDna';
@@ -23,6 +34,11 @@ import { HubLabelLayer } from './visualization/HubLabels';
 export default function App() {
   const { nodes, edges, meta, phase, status, compose } = useComposeStream();
   const [mode, setMode] = useState<ViewMode>('city');
+  // Trying on or equipping a shop item shows Code City, where skins, buildings and worlds apply.
+  const showCity = useStoreSelector(shopStore, (s) => s.showCity);
+  useEffect(() => {
+    if (showCity) setMode('city');
+  }, [showCity]);
   const [overlay, setOverlay] = useState<MetricOverlay>('complexity');
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tour, setTour] = useState<TourState>('off');
@@ -52,6 +68,7 @@ export default function App() {
   );
   const layout = otherLayout ?? cityLayout;
 
+  useEffect(() => void initAccount().then(initShop), []);
   useEffect(() => audioEngine.setModel(model, dna), [model, dna]);
 
   // When analysis finishes, switch from the "listening" intro to the full composition.
@@ -60,7 +77,7 @@ export default function App() {
     if (phase === 'ready' && meta && composedFor.current !== meta.repoName && model.files.size > 0) {
       composedFor.current = meta.repoName;
       audioEngine.loadComposition(model, dna);
-      void submitRanking(meta, dna);
+      if (!meta.privateRepo) void submitRanking(meta, dna);
     }
   }, [phase, meta, model, dna]);
 
@@ -75,15 +92,28 @@ export default function App() {
     [compose],
   );
 
+  // Time-lapse: watch the city grow through the repo's history (closes when another repo is composed).
+  const onHistory = useCallback(() => {
+    if (!meta) return;
+    setMode('city');
+    setSheet(null);
+    void openHistory(meta, [...model.files.keys()]);
+  }, [meta, model]);
+  useEffect(() => closeHistory, [meta?.repoName]);
+
   // Opened from the leaderboard or a shared link (?repo=owner/name): compose straight away.
   // Browsers only allow sound after a user gesture, so until the first click we show a hint
   // and the music starts on that click.
   const [needsSound, setNeedsSound] = useState(false);
   const autoComposed = useRef(false);
   useEffect(() => {
-    const repo = new URLSearchParams(window.location.search).get('repo');
+    const params = new URLSearchParams(window.location.search);
+    const repo = params.get('repo');
     if (!repo || autoComposed.current) return;
     autoComposed.current = true;
+    // Links from Sonyx Wrapped pick the music style too (?preset=techno).
+    const preset = params.get('preset');
+    if (preset && preset in PRESETS) audioEngine.setPreset(preset as PresetId);
     onCompose(repo.startsWith('http') ? repo : `https://github.com/${repo}`, false);
     // Some browsers allow audio here (e.g. after interacting with the site); only hint if they don't.
     audioEngine.unlock().then(() => setNeedsSound(false), () => {});
@@ -175,6 +205,43 @@ export default function App() {
   const analysed = nodes.filter((n) => n.analyzed).length;
   const hasRepo = model.files.size > 0;
 
+  if (IS_EMBED) {
+    return (
+      <div className="app app--embed">
+        {hasRepo ? (
+          <CodeSculpture
+            model={model}
+            layout={layout}
+            mode={mode}
+            overlay={overlay}
+            selectedId={selectedId}
+            activeGroup={activeGroup}
+            tour={tour}
+            onSelect={onSelect}
+            onHover={onHover}
+            onTourInterrupt={onTourInterrupt}
+            cityPlan={cityLayout.city}
+          />
+        ) : (
+          <div className="embed__loading">
+            <span className="brand__mark" aria-hidden>
+              ◈
+            </span>
+            <p>{status}</p>
+          </div>
+        )}
+        {hasRepo && <HubLabelLayer groups={model.groups} activeKey={activeGroup ?? selected?.group ?? null} />}
+        {hasRepo && <HoverTooltip model={model} />}
+        {needsSound && (
+          <div className="sound-hint panel" role="status">
+            🔊 Tap to play
+          </div>
+        )}
+        <EmbedBar repoName={meta?.repoName} status={status} mode={mode} onMode={setMode} />
+      </div>
+    );
+  }
+
   return (
     <div className="app">
       {hasRepo ? (
@@ -202,6 +269,15 @@ export default function App() {
             concurrency becomes rhythm.
           </p>
           <p className="hero__hint">Paste a public GitHub repo URL above, then press Compose. Sound on 🎧</p>
+          <HeroPicks onPick={onCompose} />
+          <div className="hero__links">
+            <a className="hero__wrapped" href="/wrapped.html">
+              ✨ New: <b>Sonyx Wrapped</b>, your GitHub year as music →
+            </a>
+            <a className="hero__wrapped hero__wrapped--battle" href="/battle.html">
+              ⚔️ <b>Repo Battles</b>: which codebase sounds better? →
+            </a>
+          </div>
         </div>
       )}
 
@@ -221,6 +297,11 @@ export default function App() {
         collapsible={compact && hasRepo}
         repoName={meta?.repoName}
       />
+      <PricingModal />
+      <ShopPanel />
+      <HistoryPanel />
+      <RecordingIndicator />
+      <Toast />
 
       {/* One FileInspector for both layouts (on phones the CSS turns it into a bottom sheet). */}
       {hasRepo && (
@@ -245,6 +326,7 @@ export default function App() {
               onMode={setMode}
               onOverlay={setOverlay}
               onTour={onTour}
+              onHistory={onHistory}
             />
             <PlaybackControls canPlay={hasRepo} />
           </div>
@@ -268,6 +350,7 @@ export default function App() {
                   onMode={setMode}
                   onOverlay={setOverlay}
                   onTour={onTour}
+                  onHistory={onHistory}
                 />
               )}
               {sheet === 'music' && <PlaybackControls embedded canPlay={hasRepo} />}

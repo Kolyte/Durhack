@@ -64,6 +64,37 @@ public class RankingRepository {
                 .update();
     }
 
+    /** The latest analysis of one repository (name as normalised by {@link RankingSubmission#normalizeRepoName}). */
+    public java.util.Optional<RankingEntry> latest(String repoName) {
+        ensureSchema();
+        return jdbc.sql("""
+                        SELECT repo_name, score, complexity, connectivity, modularity, concurrency, size, stars,
+                               analyzed_files, total_code_files, analyzed_at,
+                               (SELECT count(*) FROM repo_analyses r2 WHERE r2.repo_name = r.repo_name) AS runs
+                        FROM repo_analyses r WHERE repo_name = ? ORDER BY analyzed_at DESC LIMIT 1""")
+                .param(repoName)
+                .query(RankingRepository::map)
+                .optional();
+    }
+
+    /** 1-based position a score would have on the leaderboard (latest analysis per repository). */
+    public int rankOf(double score) {
+        ensureSchema();
+        Integer higher = jdbc.sql("""
+                        SELECT count(*) FROM (
+                            SELECT DISTINCT ON (repo_name) score FROM repo_analyses ORDER BY repo_name, analyzed_at DESC
+                        ) latest WHERE score > ?""")
+                .param(score).query(Integer.class).single();
+        return higher + 1;
+    }
+
+    private static RankingEntry map(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
+        return new RankingEntry(rs.getString("repo_name"), rs.getDouble("score"), rs.getDouble("complexity"),
+                rs.getDouble("connectivity"), rs.getDouble("modularity"), rs.getDouble("concurrency"),
+                rs.getDouble("size"), rs.getInt("stars"), rs.getInt("analyzed_files"), rs.getInt("total_code_files"),
+                rs.getInt("runs"), rs.getObject("analyzed_at", Timestamp.class).toInstant());
+    }
+
     /** Latest analysis per repository, best overall score first. */
     public List<RankingEntry> top(int limit) {
         ensureSchema();
@@ -79,19 +110,7 @@ public class RankingRepository {
                         ORDER BY score DESC, analyzed_at DESC
                         LIMIT ?""")
                 .param(limit)
-                .query((rs, i) -> new RankingEntry(
-                        rs.getString("repo_name"),
-                        rs.getDouble("score"),
-                        rs.getDouble("complexity"),
-                        rs.getDouble("connectivity"),
-                        rs.getDouble("modularity"),
-                        rs.getDouble("concurrency"),
-                        rs.getDouble("size"),
-                        rs.getInt("stars"),
-                        rs.getInt("analyzed_files"),
-                        rs.getInt("total_code_files"),
-                        rs.getInt("runs"),
-                        rs.getObject("analyzed_at", Timestamp.class).toInstant()))
+                .query(RankingRepository::map)
                 .list();
     }
 }

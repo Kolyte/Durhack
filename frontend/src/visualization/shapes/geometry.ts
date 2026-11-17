@@ -1,4 +1,7 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import type { StyleId } from '../../cosmetics/catalog';
+import { styledCity } from './styles';
 import type { FileInfo } from '../../model/repoModel';
 import type { ViewMode } from '../../types';
 
@@ -54,8 +57,140 @@ export function getWhiteTexture(): THREE.DataTexture {
   return whiteTexture;
 }
 
+type CanvasPaint = (ctx: CanvasRenderingContext2D, size: number, rnd: () => number) => void;
+const canvasCache = new Map<string, THREE.CanvasTexture>();
+
+/** A cached grayscale canvas texture (used as an emissive map, so it shapes the glow of the file's colour). */
+export function paintedTexture(key: string, size: number, paint: CanvasPaint, repeat = false): THREE.CanvasTexture {
+  const hit = canvasCache.get(key);
+  if (hit) return hit;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  let seed = key.length * 7919 + 13;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  paint(ctx, size, rnd);
+  const t = new THREE.CanvasTexture(canvas);
+  t.colorSpace = THREE.SRGBColorSpace;
+  t.anisotropy = 4;
+  if (repeat) t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  else t.wrapS = THREE.RepeatWrapping;
+  canvasCache.set(key, t);
+  return t;
+}
+
+export type PlanetSurface = 'gas' | 'rock' | 'ocean' | 'ice';
+
+/** Planet surfaces, all procedural: gas-giant bands, cratered rock, oceans with continents, icy swirls. */
+export function getPlanetTexture(surface: PlanetSurface): THREE.CanvasTexture {
+  return paintedTexture(`planet-${surface}`, 256, (ctx, size, rnd) => {
+    const g = (v: number) => `rgb(${Math.round(v * 255)},${Math.round(v * 255)},${Math.round(v * 255)})`;
+    if (surface === 'gas') {
+      // Horizontal bands of varying width and brightness, with a few soft storms.
+      let y = 0;
+      while (y < size) {
+        const h = 4 + rnd() * 22;
+        ctx.fillStyle = g(0.35 + rnd() * 0.65);
+        ctx.fillRect(0, y, size, h + 1);
+        y += h;
+      }
+      ctx.filter = 'blur(2px)';
+      ctx.drawImage(ctx.canvas, 0, 0);
+      ctx.filter = 'none';
+      for (let i = 0; i < 3; i++) {
+        const x = rnd() * size, cy = size * (0.3 + rnd() * 0.4), r = 8 + rnd() * 14;
+        const grad = ctx.createRadialGradient(x, cy, 0, x, cy, r);
+        grad.addColorStop(0, g(1));
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.ellipse(x, cy, r * 1.8, r, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      return;
+    }
+    // Rock / ocean / ice: noisy base with features.
+    ctx.fillStyle = g(surface === 'ice' ? 0.75 : surface === 'ocean' ? 0.3 : 0.5);
+    ctx.fillRect(0, 0, size, size);
+    for (let i = 0; i < 900; i++) {
+      ctx.fillStyle = g(rnd() * (surface === 'ice' ? 1 : 0.8));
+      ctx.globalAlpha = 0.08;
+      const r = 2 + rnd() * 10;
+      ctx.beginPath();
+      ctx.arc(rnd() * size, rnd() * size, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    if (surface === 'rock') {
+      // Craters: dark bowl with a bright rim.
+      for (let i = 0; i < 26; i++) {
+        const x = rnd() * size, y = size * (0.1 + rnd() * 0.8), r = 3 + rnd() * rnd() * 22;
+        ctx.fillStyle = g(0.18);
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = g(0.95); ctx.lineWidth = Math.max(1, r * 0.18);
+        ctx.beginPath(); ctx.arc(x - r * 0.1, y - r * 0.1, r, Math.PI * 0.9, Math.PI * 1.9); ctx.stroke();
+      }
+    } else if (surface === 'ocean') {
+      // Continents: bright blobs on a dark sea, plus white polar caps.
+      for (let i = 0; i < 9; i++) {
+        const cx = rnd() * size, cy = size * (0.2 + rnd() * 0.6);
+        ctx.fillStyle = g(0.85);
+        for (let j = 0; j < 14; j++) {
+          ctx.beginPath();
+          ctx.arc(cx + (rnd() - 0.5) * 50, cy + (rnd() - 0.5) * 30, 5 + rnd() * 12, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      ctx.fillStyle = g(1);
+      ctx.fillRect(0, 0, size, size * 0.07);
+      ctx.fillRect(0, size * 0.93, size, size * 0.07);
+    } else {
+      // Ice: long cracks.
+      ctx.strokeStyle = g(0.25);
+      for (let i = 0; i < 40; i++) {
+        ctx.lineWidth = 0.5 + rnd() * 1.5;
+        ctx.beginPath();
+        let x = rnd() * size, y = rnd() * size;
+        ctx.moveTo(x, y);
+        for (let k = 0; k < 6; k++) { x += (rnd() - 0.5) * 50; y += (rnd() - 0.5) * 30; ctx.lineTo(x, y); }
+        ctx.stroke();
+      }
+    }
+  });
+}
+
+/** Leaf surface: bright midrib and veins on a softer blade (tree view). */
+export function getLeafTexture(): THREE.CanvasTexture {
+  return paintedTexture('leaf', 128, (ctx, size) => {
+    ctx.fillStyle = 'rgb(120,120,120)';
+    ctx.fillRect(0, 0, size, size);
+    ctx.strokeStyle = 'rgb(255,255,255)';
+    ctx.lineWidth = 3;
+    // Sphere UVs: u goes around (x), v from pole to pole (y). The midrib runs around the long axis.
+    ctx.beginPath(); ctx.moveTo(0, size / 2); ctx.lineTo(size, size / 2); ctx.stroke();
+    ctx.lineWidth = 1.2;
+    for (let i = 1; i < 10; i++) {
+      const x = (i / 10) * size;
+      ctx.beginPath(); ctx.moveTo(x, size / 2); ctx.lineTo(x + 10, size * 0.15); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, size / 2); ctx.lineTo(x + 10, size * 0.85); ctx.stroke();
+    }
+  });
+}
+
+/** Which texture each file's body uses as its glow map in the galaxy/tree views. */
+export function bodyMapFor(kind: FileInfo['kind'], mode: ViewMode, complexity: number): THREE.Texture | null {
+  if (mode === 'galaxy') {
+    if (kind === 'module') return getPlanetTexture('gas');
+    if (kind === 'docs') return getPlanetTexture('rock');
+    if (kind === 'config') return getPlanetTexture('ice');
+    return getPlanetTexture(complexity > 0.6 ? 'gas' : complexity > 0.3 ? 'ocean' : 'rock');
+  }
+  if (mode === 'tree' && kind === 'source') return getLeafTexture();
+  return null;
+}
+
 /** Box whose side UVs are in "window units" (so window size is constant), roofs mapped to black. */
-function windowedBox(w: number, h: number, d: number): THREE.BufferGeometry {
+export function windowedBox(w: number, h: number, d: number): THREE.BufferGeometry {
   const g = new THREE.BoxGeometry(w, h, d);
   const uv = g.attributes.uv as THREE.BufferAttribute;
   // Face order: +x, -x, +y, -y, +z, -z (4 vertices each).
@@ -73,7 +208,7 @@ function windowedBox(w: number, h: number, d: number): THREE.BufferGeometry {
 }
 
 /** Cylinder with window-unit UVs on its side and dark caps. */
-function windowedCylinder(rTop: number, rBottom: number, h: number, segments: number): THREE.BufferGeometry {
+export function windowedCylinder(rTop: number, rBottom: number, h: number, segments: number): THREE.BufferGeometry {
   const g = new THREE.CylinderGeometry(rTop, rBottom, h, segments, 1, false);
   const uv = g.attributes.uv as THREE.BufferAttribute;
   const sideVerts = (segments + 1) * 2;
@@ -88,8 +223,11 @@ function windowedCylinder(rTop: number, rBottom: number, h: number, segments: nu
 
 export interface Part {
   geometry: THREE.BufferGeometry;
-  /** "body" is the main (windowed in City) material, "accent" a solid glow for crowns, rings, roofs. */
-  mat: 'body' | 'accent';
+  /**
+   * "body" is the main (windowed in City) material, "accent" a solid glow for crowns, rings, roofs,
+   * "glow" a soft additive halo (planet atmospheres, fireflies of light around blossoms).
+   */
+  mat: 'body' | 'accent' | 'glow';
   position?: [number, number, number];
   rotation?: [number, number, number];
   scale?: [number, number, number];
@@ -118,8 +256,9 @@ export interface BuildingTraits {
  *    very complex → tapered spire skyscraper · module → round landmark tower with halo ring ·
  *    test → research lab with rooftop dish · docs → library with a pediment · config → utility house.
  *    Files using concurrency get a rooftop beacon.
- *  Galaxy: crystal planet · ringed planet · octahedron · flat torus · small moon.
- *  Tree:   leaf · blossom · crystal · flower · bud.
+ *  Galaxy: planets (rocky / ocean / gas, with atmospheres, rings, moons) · ringed gas giant with moons ·
+ *          ice crystal · space station · cratered moon.
+ *  Tree:   leaf cluster · glowing fruit · crystal · flower · bud.
  */
 export function shapeFor(
   kind: FileInfo['kind'],
@@ -128,22 +267,23 @@ export function shapeFor(
   s: number,
   footprint: number,
   traits: BuildingTraits = { complexity: 0.3, concurrent: false },
+  style: StyleId = 'style.classic',
 ): ShapeRecipe {
-  if (mode === 'city') return cityShape(kind, h, footprint, traits);
+  if (mode === 'city') return styledCity(style, kind, h, footprint, traits) ?? cityShape(kind, h, footprint, traits);
   if (mode === 'tree') return treeShape(kind, s);
-  return galaxyShape(kind, s);
+  return galaxyShape(kind, s, traits.complexity, traits.concurrent);
 }
 
-const box = (w: number, h: number, d: number, y: number, mat: Part['mat'] = 'body', x = 0, z = 0): Part => ({
+export const box = (w: number, h: number, d: number, y: number, mat: Part['mat'] = 'body', x = 0, z = 0): Part => ({
   geometry: mat === 'body' ? windowedBox(w, h, d) : new THREE.BoxGeometry(w, h, d),
   mat,
   position: [x, y + h / 2, z],
 });
 
 /** A glowing band around the top of a block (roof parapet / setback crown). */
-const crown = (w: number, d: number, y: number): Part => ({ geometry: new THREE.BoxGeometry(w * 1.03, 0.05, d * 1.03), mat: 'accent', position: [0, y, 0] });
+export const crown = (w: number, d: number, y: number): Part => ({ geometry: new THREE.BoxGeometry(w * 1.03, 0.05, d * 1.03), mat: 'accent', position: [0, y, 0] });
 
-function withBeacon(recipe: ShapeRecipe, traits: BuildingTraits): ShapeRecipe {
+export function withBeacon(recipe: ShapeRecipe, traits: BuildingTraits): ShapeRecipe {
   if (!traits.concurrent) return recipe;
   // Concurrency: a small rooftop beacon on a mast.
   recipe.parts.push(
@@ -264,49 +404,139 @@ function sourceBuilding(h: number, w: number, cx: number): ShapeRecipe {
   return { anchorY: y, parts };
 }
 
-function galaxyShape(kind: FileInfo['kind'], s: number): ShapeRecipe {
+/** A sphere whose geometry is offset from its origin: spinning the mesh makes it orbit (moons). */
+function orbiter(distance: number, tilt: number, size: number): Part {
+  const g = new THREE.SphereGeometry(size, 12, 8).translate(distance, 0, 0);
+  return { geometry: g, mat: 'accent', rotation: [Math.PI / 2 + tilt, 0, 0], spin: true };
+}
+
+/** A flat planetary ring: a torus squashed into a disc, visible from above and below. */
+function planetRing(radius: number, width: number, tilt: number, spin = false): Part {
+  return {
+    geometry: new THREE.TorusGeometry(radius, width, 6, 64),
+    mat: 'accent',
+    rotation: [Math.PI / 2 + tilt, 0, 0],
+    scale: [1, 1, 0.07],
+    spin,
+  };
+}
+
+const atmosphere = (r: number): Part => ({ geometry: new THREE.SphereGeometry(r, 24, 16), mat: 'glow' });
+
+function galaxyShape(kind: FileInfo['kind'], s: number, cx: number, concurrent: boolean): ShapeRecipe {
   switch (kind) {
     case 'module':
+      // Gas giant: banded sphere, a wide double ring system and two moons.
       return {
         anchorY: 0,
         parts: [
-          { geometry: new THREE.SphereGeometry(s * 1.15, 24, 16), mat: 'body' },
-          { geometry: new THREE.TorusGeometry(s * 2, s * 0.08, 8, 48), mat: 'accent', rotation: [Math.PI / 2.3, 0, 0], spin: true },
+          { geometry: new THREE.SphereGeometry(s * 1.15, 32, 20), mat: 'body', rotation: [0.35, 0, 0.2] },
+          atmosphere(s * 1.38),
+          planetRing(s * 2.0, s * 0.42, 0.35),
+          planetRing(s * 2.75, s * 0.18, 0.35),
+          orbiter(s * 3.4, 0.2, s * 0.2),
+          orbiter(s * 4.2, -0.45, s * 0.14),
         ],
       };
     case 'config':
-      return { anchorY: 0, parts: [{ geometry: new THREE.OctahedronGeometry(s, 0), mat: 'body' }] };
-    case 'test':
-      return { anchorY: 0, parts: [{ geometry: new THREE.TorusGeometry(s * 1.05, s * 0.28, 10, 32), mat: 'accent', rotation: [Math.PI / 2, 0, 0] }] };
+      // Ice crystal asteroid.
+      return {
+        anchorY: 0,
+        parts: [
+          { geometry: new THREE.OctahedronGeometry(s, 0), mat: 'body', rotation: [0.4, 0.3, 0] },
+          { geometry: new THREE.OctahedronGeometry(s * 0.45, 0), mat: 'accent', position: [s * 0.9, s * 0.4, 0], rotation: [0.8, 0.2, 0.5] },
+        ],
+      };
+    case 'test': {
+      // Space station: a habitat ring with spokes around a glowing core.
+      const r = s * 1.05;
+      const spokes = mergeGeometries([0, 1, 2].map((i) => new THREE.CylinderGeometry(s * 0.05, s * 0.05, r * 2, 5).rotateZ((i * Math.PI) / 3)));
+      return {
+        anchorY: 0,
+        parts: [
+          { geometry: new THREE.TorusGeometry(r, s * 0.16, 10, 40), mat: 'body', rotation: [Math.PI / 2.4, 0, 0], spin: true },
+          { geometry: spokes, mat: 'accent', rotation: [Math.PI / 2.4, 0, 0], spin: true },
+          { geometry: new THREE.SphereGeometry(s * 0.32, 16, 12), mat: 'accent' },
+          { geometry: new THREE.CylinderGeometry(s * 0.06, s * 0.06, s * 1.6, 6), mat: 'accent', rotation: [0.17, 0, 0] },
+        ],
+      };
+    }
     case 'docs':
-      return { anchorY: 0, parts: [{ geometry: new THREE.SphereGeometry(s * 0.6, 16, 12), mat: 'body' }] };
-    default:
-      return { anchorY: 0, parts: [{ geometry: new THREE.IcosahedronGeometry(s, 0), mat: 'body' }] };
+      // A small cratered moon.
+      return { anchorY: 0, parts: [{ geometry: new THREE.SphereGeometry(s * 0.62, 20, 14), mat: 'body' }] };
+    default: {
+      // Planets: rocky (simple code), ocean worlds (moderate) or banded gas worlds (complex), with an
+      // atmosphere; async code gets a ring, very complex code a moon.
+      const parts: Part[] = [{ geometry: new THREE.SphereGeometry(s, 28, 18), mat: 'body', rotation: [0.3, 0, 0.15] }, atmosphere(s * 1.22)];
+      if (concurrent) parts.push(planetRing(s * 1.8, s * 0.3, -0.3));
+      if (cx > 0.6) parts.push(orbiter(s * 2.6, 0.3, s * 0.18));
+      return { anchorY: 0, parts };
+    }
   }
+}
+
+/** Five petals around a centre, merged into one mesh. */
+function petals(s: number, count = 5): THREE.BufferGeometry {
+  const geos = Array.from({ length: count }, (_, i) =>
+    new THREE.SphereGeometry(1, 10, 6)
+      .scale(s * 0.62, s * 0.16, s * 0.3)
+      .translate(s * 0.55, 0, 0)
+      .rotateY((i / count) * Math.PI * 2),
+  );
+  const merged = mergeGeometries(geos);
+  geos.forEach((g) => g.dispose());
+  return merged;
+}
+
+/** A small fan of leaves, merged: reads as foliage instead of a single blob. */
+function leafCluster(s: number): THREE.BufferGeometry {
+  const geos = [-0.7, 0, 0.7].map((a, i) =>
+    new THREE.SphereGeometry(1, 14, 8)
+      .scale(s * (i === 1 ? 1.5 : 1.15), s * 0.22, s * (i === 1 ? 0.8 : 0.62))
+      .translate(s * (i === 1 ? 0.55 : 0.4), 0, 0)
+      .rotateZ(i === 1 ? 0.25 : 0.05)
+      .rotateY(a),
+  );
+  const merged = mergeGeometries(geos);
+  geos.forEach((g) => g.dispose());
+  return merged;
 }
 
 function treeShape(kind: FileInfo['kind'], s: number): ShapeRecipe {
   switch (kind) {
     case 'module':
-      // Blossom: a glowing fruit with a small halo.
+      // Glowing fruit with a soft aura and a leaf on top.
       return {
         anchorY: 0,
         parts: [
-          { geometry: new THREE.SphereGeometry(s * 0.95, 20, 14), mat: 'accent' },
-          { geometry: new THREE.TorusGeometry(s * 1.5, s * 0.07, 8, 36), mat: 'accent', rotation: [Math.PI / 2.2, 0, 0], spin: true },
+          { geometry: new THREE.SphereGeometry(s * 0.95, 24, 16), mat: 'accent' },
+          atmosphere(s * 1.6),
+          { geometry: new THREE.SphereGeometry(1, 10, 6).scale(s * 0.6, s * 0.12, s * 0.3), mat: 'body', position: [s * 0.35, s * 0.95, 0], rotation: [0, 0, 0.5] },
+          { geometry: new THREE.TorusGeometry(s * 1.5, s * 0.05, 8, 36), mat: 'accent', rotation: [Math.PI / 2.2, 0, 0], spin: true },
         ],
       };
     case 'config':
-      return { anchorY: 0, parts: [{ geometry: new THREE.OctahedronGeometry(s * 0.8, 0), mat: 'accent' }] };
-    case 'test':
-      return { anchorY: 0, parts: [{ geometry: new THREE.TorusGeometry(s * 0.75, s * 0.25, 8, 20), mat: 'accent', rotation: [Math.PI / 2, 0, 0] }] };
-    case 'docs':
-      return { anchorY: 0, parts: [{ geometry: new THREE.SphereGeometry(s * 0.5, 12, 8), mat: 'body' }] };
-    default:
-      // Leaf: a flattened, pointed ellipsoid.
+      // Crystal growing on the branch.
       return {
         anchorY: 0,
-        parts: [{ geometry: new THREE.SphereGeometry(1, 14, 8), mat: 'body', scale: [s * 1.5, s * 0.28, s * 0.85] }],
+        parts: [
+          { geometry: new THREE.OctahedronGeometry(s * 0.8, 0), mat: 'accent', scale: [0.7, 1.4, 0.7] },
+          { geometry: new THREE.OctahedronGeometry(s * 0.45, 0), mat: 'accent', position: [s * 0.45, -s * 0.2, 0], scale: [0.7, 1.4, 0.7], rotation: [0, 0, -0.6] },
+        ],
       };
+    case 'test':
+      // Flower: petals around a bright centre.
+      return {
+        anchorY: 0,
+        parts: [
+          { geometry: petals(s), mat: 'body', rotation: [0.3, 0, 0] },
+          { geometry: new THREE.SphereGeometry(s * 0.28, 12, 8), mat: 'accent' },
+        ],
+      };
+    case 'docs':
+      // Bud.
+      return { anchorY: 0, parts: [{ geometry: new THREE.SphereGeometry(1, 12, 8).scale(s * 0.45, s * 0.65, s * 0.45), mat: 'body' }] };
+    default:
+      return { anchorY: 0, parts: [{ geometry: leafCluster(s), mat: 'body' }] };
   }
 }

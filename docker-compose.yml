@@ -13,6 +13,17 @@ services:
       # Optional: Gemini file explanations (key from aistudio.google.com; never commit it).
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.5-flash-lite}
+      # Optional: "Sign in with GitHub" (OAuth app callback: https://<domain>/login/oauth2/code/github).
+      GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+      GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+      # Optional: Stripe subscriptions for Sonyx Pro (all three needed; until then Pro features are free).
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_PRICE_ID: ${STRIPE_PRICE_ID:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_PRICE_LABEL: ${STRIPE_PRICE_LABEL:-}
+      APP_BASE_URL: ${APP_BASE_URL:-}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      SHOP_CURRENCY: ${SHOP_CURRENCY:-gbp}
     expose:
       - "8080"
 

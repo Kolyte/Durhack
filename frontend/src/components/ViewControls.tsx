@@ -10,6 +10,7 @@ export function ViewControls({
   onMode,
   onOverlay,
   onTour,
+  onHistory,
   embedded = false,
 }: {
   mode: ViewMode;
@@ -19,6 +20,8 @@ export function ViewControls({
   onMode: (m: ViewMode) => void;
   onOverlay: (o: MetricOverlay) => void;
   onTour: (action: 'start' | 'pause' | 'resume' | 'exit') => void;
+  /** Opens the history time-lapse. */
+  onHistory?: () => void;
   /** Rendered inside the mobile sheet rather than as its own floating panel. */
   embedded?: boolean;
 }) {
@@ -70,6 +73,11 @@ export function ViewControls({
               Exit tour
             </button>
           </div>
+        )}
+        {onHistory && (
+          <button className="btn btn--ghost" disabled={!canTour} onClick={onHistory} title="Watch the codebase grow through its history">
+            ⏳ Time-lapse
+          </button>
         )}
       </div>
     </section>

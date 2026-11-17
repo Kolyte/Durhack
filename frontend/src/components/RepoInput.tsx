@@ -1,6 +1,22 @@
 import { useState } from 'react';
 import { COMPACT_QUERY, useMediaQuery } from '../state/useMediaQuery';
 import type { Phase } from '../state/useComposeStream';
+import { AccountMenu } from './AccountMenu';
+import { openShop } from '../state/shop';
+import { accountStore, connectPrivateRepos, openPricing, signIn } from '../state/account';
+import { useStore } from '../state/store';
+
+/** Shown when GitHub says "not found": usually a private repo. */
+function PrivateReposHint() {
+  const { me } = useStore(accountStore);
+  if (!me.signInAvailable || me.privateRepos) return null;
+  const go = () => (!me.signedIn ? signIn('upgrade') : me.canUsePro ? connectPrivateRepos() : openPricing());
+  return (
+    <button className="btn btn--accent btn--sm status__action" onClick={go}>
+      🔒 {me.signedIn && me.canUsePro ? 'Connect private repos' : 'Private repos are in Pro'}
+    </button>
+  );
+}
 
 /** "github.com/a/b", "a/b" or a full URL → a full https URL the backend understands. */
 function normalizeRepoUrl(raw: string): string {
@@ -66,6 +82,10 @@ export function RepoInput({
         <a className="chip nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
           🏆
         </a>
+        <button className="chip nav-button" onClick={openShop} aria-label="Shop" title="Shop">
+          🛍️
+        </button>
+        <AccountMenu compact />
         <button className="chip" onClick={() => setExpanded(true)} aria-label="Change repository">
           Change
         </button>
@@ -107,6 +127,7 @@ export function RepoInput({
       </form>
       <div className={`status${phase === 'error' ? ' status--error' : ''}`} role="status">
         {status}
+        {phase === 'error' && /private repos/i.test(status) && <PrivateReposHint />}
         {showProgress && (
           <div className="progress" aria-hidden>
             <div className="progress__bar" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
@@ -117,6 +138,10 @@ export function RepoInput({
       <a className="btn btn--accent nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
         🏆<span className="nav-button__label"> Leaderboard</span>
       </a>
+      <button className="btn btn--ghost nav-button shop-button" onClick={openShop} aria-label="Shop" title="Shop">
+        🛍️<span className="nav-button__label"> Shop</span>
+      </button>
+      <AccountMenu />
     </header>
   );
 }

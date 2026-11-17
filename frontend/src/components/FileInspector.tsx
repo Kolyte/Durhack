@@ -4,7 +4,8 @@ import { PRESETS } from '../audio/presets';
 import { useEffect, useState } from 'react';
 import { explainFile, type FileExplanation } from '../model/explain';
 import type { FileInfo, RepoModel } from '../model/repoModel';
-import { cachedExplanation, explainWithGemini, geminiStatus, type GeminiExplanation } from '../state/gemini';
+import { accountStore, loadMe, openPricing } from '../state/account';
+import { cachedExplanation, explainWithGemini, GeminiError, geminiStatus, type GeminiExplanation } from '../state/gemini';
 import { useStore } from '../state/store';
 import type { RepoMeta } from '../types';
 
@@ -26,6 +27,7 @@ function WhatItsFor({ file, model, meta }: { file: FileInfo; model: RepoModel; m
   const [gemini, setGemini] = useState<GeminiExplanation | null>(() => (meta ? (cachedExplanation(meta, file) ?? null) : null));
   const [state, setState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [error, setError] = useState('');
+  const { me } = useStore(accountStore);
 
   useEffect(() => {
     let alive = true;
@@ -37,11 +39,18 @@ function WhatItsFor({ file, model, meta }: { file: FileInfo; model: RepoModel; m
 
   const ask = async () => {
     if (!meta) return;
+    if (!me.canUsePro) return openPricing();
     setState('loading');
     try {
       setGemini(await explainWithGemini(meta, file));
       setState('idle');
     } catch (e) {
+      if (e instanceof GeminiError && (e.code === 'sign_in' || e.code === 'pro_required')) {
+        // The session expired or the subscription lapsed: refresh the account and show the plans.
+        setState('idle');
+        void loadMe();
+        return openPricing();
+      }
       setError(e instanceof Error ? e.message : 'Gemini request failed');
       setState('error');
     }
@@ -65,6 +74,7 @@ function WhatItsFor({ file, model, meta }: { file: FileInfo; model: RepoModel; m
       {enabled && !gemini && meta && (
         <button className="btn btn--ghost btn--block btn--ai" onClick={ask} disabled={state === 'loading'}>
           {state === 'loading' ? 'Asking Gemini…' : '✨ Explain with Gemini'}
+          {!me.canUsePro && <span className="plan-badge plan-badge--pro">Pro</span>}
         </button>
       )}
       {state === 'error' && <p className="note note--error">{error} Showing the built-in explanation.</p>}

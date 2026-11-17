@@ -1,3 +1,4 @@
+import { apiFetch } from './http';
 import type { CodeDna } from '../model/codeDna';
 import type { RepoMeta } from '../types';
 
@@ -40,7 +41,7 @@ export async function fetchRankings(limit = 200): Promise<RankingEntry[]> {
 /** Records a finished composition. Best effort: the music never waits on (or breaks because of) the ranking. */
 export async function submitRanking(meta: RepoMeta, dna: CodeDna): Promise<void> {
   try {
-    await fetch('/api/rankings', {
+    await apiFetch('/api/rankings', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
