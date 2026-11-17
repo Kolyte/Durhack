@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChevronLeft, ChevronRight, Download, Github, Headphones, Pause, Play, RotateCcw, Share2, Star, Volume2, VolumeX, X } from 'lucide-react';
 import { apiFetch } from '../api/http';
+import { SiteHeader } from '../components/SiteHeader';
 import { compact, renderShareCard } from './shareCard';
 import { Soundtrack } from './soundtrack';
 import type { Wrapped } from './types';
@@ -9,7 +11,7 @@ const YEAR = new Date().getFullYear();
 
 type Phase = { kind: 'ask' } | { kind: 'loading'; login: string } | { kind: 'error'; message: string } | { kind: 'ready'; data: Wrapped } | { kind: 'story'; data: Wrapped };
 
-/** Sonyx Wrapped: a GitHub profile's year as a short, swipeable music story with a shareable card. */
+/** Sonyx Wrapped: a GitHub profile's year as a short music story with a shareable card. */
 export function WrappedPage() {
   const initial = new URLSearchParams(window.location.search).get('u');
   const [phase, setPhase] = useState<Phase>(initial ? { kind: 'loading', login: initial } : { kind: 'ask' });
@@ -39,6 +41,13 @@ export function WrappedPage() {
     [fetchWrapped],
   );
 
+  const restart = useCallback(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.delete('u');
+    window.history.replaceState(null, '', url);
+    setPhase({ kind: 'ask' });
+  }, []);
+
   useEffect(() => {
     if (initial) void fetchWrapped(initial);
     void apiFetch('/api/me')
@@ -47,81 +56,124 @@ export function WrappedPage() {
       .catch(() => undefined);
   }, [initial, fetchWrapped]);
 
+  if (phase.kind === 'story') return <Story data={phase.data} onRestart={restart} />;
+
   return (
     <div className="wrapped">
-      <div className="wrapped__blobs" aria-hidden>
-        <span />
-        <span />
-        <span />
-      </div>
-      {phase.kind === 'ask' && <Ask me={me} onGo={load} />}
-      {phase.kind === 'loading' && (
-        <div className="wrapped__center">
-          <div className="eq" aria-hidden>
-            {Array.from({ length: 7 }, (_, i) => (
-              <i key={i} style={{ animationDelay: `${i * 0.11}s` }} />
-            ))}
+      <SiteHeader active="wrapped" />
+      <main className="wrapped__main">
+        {phase.kind === 'ask' && <Ask me={me} onGo={load} />}
+        {phase.kind === 'loading' && (
+          <div className="wrapped__center">
+            <div className="eq" aria-hidden>
+              {Array.from({ length: 7 }, (_, i) => (
+                <i key={i} style={{ animationDelay: `${i * 0.11}s` }} />
+              ))}
+            </div>
+            <p>Reading @{phase.login}'s public repositories…</p>
           </div>
-          <p>Listening to @{phase.login}'s repositories…</p>
-        </div>
-      )}
-      {phase.kind === 'error' && (
-        <div className="wrapped__center">
-          <h1>Hmm.</h1>
-          <p>{phase.message}</p>
-          <button className="btn btn--primary" onClick={() => setPhase({ kind: 'ask' })}>
-            Try another username
-          </button>
-        </div>
-      )}
-      {phase.kind === 'ready' && <Start data={phase.data} onStart={() => setPhase({ kind: 'story', data: phase.data })} />}
-      {phase.kind === 'story' && <Story data={phase.data} onRestart={() => setPhase({ kind: 'ask' })} />}
+        )}
+        {phase.kind === 'error' && (
+          <div className="wrapped__center">
+            <h1>That didn't work.</h1>
+            <p>{phase.message}</p>
+            <button className="btn btn--primary" onClick={restart}>
+              Try another username
+            </button>
+          </div>
+        )}
+        {phase.kind === 'ready' && <Start data={phase.data} onStart={() => setPhase({ kind: 'story', data: phase.data })} onBack={restart} />}
+      </main>
     </div>
   );
 }
+
+const WHAT_YOU_GET = [
+  ['Your genre', 'Top languages become music genres.'],
+  ['Your biggest hit', 'Your most-starred repository.'],
+  ['Your year on tour', 'Repos you worked on, and your busiest month.'],
+  ['A soundtrack', 'Generated in your own key and tempo.'],
+] as const;
 
 function Ask({ me, onGo }: { me: string | null; onGo: (login: string) => void }) {
   const [value, setValue] = useState('');
   return (
-    <div className="wrapped__center wrapped__ask">
-      <a className="wrapped__brand" href="/">
-        ◈ Sonyx
-      </a>
-      <h1>
-        Wrapped <span className="hero__accent">{YEAR}</span>
-      </h1>
-      <p>Your GitHub year, as music. Top languages become genres, your biggest repo becomes your hit single.</p>
-      <form
-        className="repo-form"
-        onSubmit={(e) => {
-          e.preventDefault();
-          onGo(value);
-        }}
-      >
-        <input className="input" value={value} onChange={(e) => setValue(e.target.value)} placeholder="GitHub username" aria-label="GitHub username" spellCheck={false} autoCapitalize="none" />
-        <button className="btn btn--primary" type="submit" disabled={!value.trim()}>
-          Wrap it
-        </button>
-      </form>
-      {me && (
-        <button className="btn btn--accent" onClick={() => onGo(me)}>
-          ✨ Wrap my profile (@{me})
-        </button>
-      )}
-      <p className="note">Uses public GitHub data only.</p>
+    <div className="wrapped__ask">
+      <section className="wrapped__intro">
+        <p className="eyebrow">Sonyx Wrapped {YEAR}</p>
+        <h1>Your GitHub year, told as music.</h1>
+        <p className="wrapped__lead">A one-minute story about your code: what it sounds like, your biggest hit, and how your year went. Then a card to share.</p>
+        <form
+          className="landing__search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onGo(value);
+          }}
+        >
+          <input className="input" value={value} onChange={(e) => setValue(e.target.value)} placeholder="GitHub username" aria-label="GitHub username" spellCheck={false} autoCapitalize="none" />
+          <button className="btn btn--primary" type="submit" disabled={!value.trim()}>
+            <Play size={16} /> Start
+          </button>
+        </form>
+        {me && (
+          <button className="btn btn--ghost" onClick={() => onGo(me)}>
+            <Github size={16} /> Use my profile (@{me})
+          </button>
+        )}
+        <ul className="wrapped__list">
+          {WHAT_YOU_GET.map(([t, d]) => (
+            <li key={t}>
+              <strong>{t}</strong>
+              <span>{d}</span>
+            </li>
+          ))}
+        </ul>
+        <p className="note">Uses public GitHub data only. Nothing is stored.</p>
+      </section>
+      <aside className="wrapped__preview" aria-hidden>
+        <div className="share__card">
+          <div className="share__head">
+            <span className="wrapped__preview-avatar" />
+            <div>
+              <strong>Your name</strong>
+              <span>@you · Wrapped {YEAR}</span>
+            </div>
+          </div>
+          <p className="share__label">My code sounds like</p>
+          <p className="share__genre">Synthwave</p>
+          <p className="share__persona">The Builder · 112 BPM · A minor</p>
+          <div className="share__stats">
+            <span>
+              <b>38</b> repos
+            </span>
+            <span>
+              <b>1.2K</b> stars
+            </span>
+            <span>
+              <b>64</b> score
+            </span>
+          </div>
+          <p className="share__langs">TypeScript · Go · Python</p>
+        </div>
+      </aside>
     </div>
   );
 }
 
-function Start({ data, onStart }: { data: Wrapped; onStart: () => void }) {
+function Start({ data, onStart, onBack }: { data: Wrapped; onStart: () => void; onBack: () => void }) {
   return (
     <div className="wrapped__center">
       {data.avatarUrl && <img className="wrapped__avatar" src={data.avatarUrl} alt="" />}
       <h1>{data.name || data.login}</h1>
-      <p>Your {data.year} Wrapped is ready. Turn your sound on.</p>
-      <button className="btn btn--primary wrapped__play" onClick={onStart}>
-        ▶ Play my Wrapped
-      </button>
+      <p>Your {data.year} Wrapped is ready. It has sound, so turn your volume up.</p>
+      <div className="wrapped__actions">
+        <button className="btn btn--primary wrapped__play" onClick={onStart}>
+          <Play size={18} /> Play
+        </button>
+        <button className="btn btn--ghost" onClick={onBack}>
+          Someone else
+        </button>
+      </div>
     </div>
   );
 }
@@ -143,13 +195,20 @@ function CountUp({ value }: { value: number }) {
   return <>{compact(shown)}</>;
 }
 
+/**
+ * The story player. Phones: full screen, tap the sides to move, hold to pause. Larger screens: the story
+ * plays in a phone-shaped frame in the middle, with arrows beside it and keyboard control
+ * (arrow keys move, space pauses).
+ */
 function Story({ data, onRestart }: { data: Wrapped; onRestart: () => void }) {
   const slides = useMemo(() => buildSlides(data, onRestart), [data, onRestart]);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [held, setHeld] = useState(false);
   const [muted, setMuted] = useState(false);
   const music = useRef<Soundtrack | null>(null);
   const last = index === slides.length - 1;
+  const stopped = paused || held;
 
   useEffect(() => {
     const s = new Soundtrack();
@@ -161,55 +220,102 @@ function Story({ data, onRestart }: { data: Wrapped; onRestart: () => void }) {
   useEffect(() => music.current?.setMuted(muted), [muted]);
 
   useEffect(() => {
-    if (paused || last) return;
+    if (stopped || last) return;
     const id = window.setTimeout(() => setIndex((i) => Math.min(slides.length - 1, i + 1)), SLIDE_MS);
     return () => window.clearTimeout(id);
-  }, [index, paused, last, slides.length]);
+  }, [index, stopped, last, slides.length]);
 
+  const next = () => setIndex((i) => Math.min(slides.length - 1, i + 1));
+  const prev = () => setIndex((i) => Math.max(0, i - 1));
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowRight' || e.key === ' ') setIndex((i) => Math.min(slides.length - 1, i + 1));
+      if (e.key === 'ArrowRight') setIndex((i) => Math.min(slides.length - 1, i + 1));
       if (e.key === 'ArrowLeft') setIndex((i) => Math.max(0, i - 1));
+      if (e.key === ' ') {
+        e.preventDefault();
+        setPaused((p) => !p);
+      }
+      if (e.key === 'Escape') onRestart();
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [slides.length]);
+  }, [slides.length, onRestart]);
 
   const slide = slides[index];
+  const hold = { onPointerDown: () => setHeld(true), onPointerUp: () => setHeld(false), onPointerLeave: () => setHeld(false) };
   return (
-    <div className={`story story--${slide.theme}`}>
-      <div className="story__bars" aria-hidden>
-        {slides.map((s, i) => (
-          <span key={s.id} className="story__bar">
-            <i className={i < index ? 'is-done' : i === index && !last ? (paused ? 'is-paused' : 'is-running') : i === index ? 'is-done' : ''} style={{ animationDuration: `${SLIDE_MS}ms` }} />
-          </span>
-        ))}
-      </div>
-      <div className="story__top">
+    <div className={`story-stage story-stage--${slide.theme}`}>
+      <div className="story-stage__bar">
         <span className="story__who">
-          {data.avatarUrl && <img src={data.avatarUrl} alt="" />}@{data.login}
+          {data.avatarUrl && <img src={data.avatarUrl} alt="" />}
+          <span>
+            <strong>{data.name || data.login}</strong>
+            <small>Sonyx Wrapped {data.year}</small>
+          </span>
         </span>
-        <button className="btn btn--icon" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute' : 'Mute'}>
-          {muted ? '🔇' : '🔊'}
-        </button>
+        <div className="story-stage__tools">
+          <button className="btn btn--icon" onClick={() => setPaused(!paused)} aria-label={paused ? 'Resume' : 'Pause'} title="Space">
+            {paused ? <Play size={18} /> : <Pause size={18} />}
+          </button>
+          <button className="btn btn--icon" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute' : 'Mute'}>
+            {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+          </button>
+          <button className="btn btn--icon" onClick={onRestart} aria-label="Close" title="Esc">
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
-      {/* Tap left/right thirds to go back/forward; hold to pause (like stories on social apps). */}
-      {!last && (
-        <>
-          <button className="story__nav story__nav--prev" aria-label="Previous" onClick={() => setIndex((i) => Math.max(0, i - 1))} onPointerDown={() => setPaused(true)} onPointerUp={() => setPaused(false)} onPointerLeave={() => setPaused(false)} />
-          <button className="story__nav story__nav--next" aria-label="Next" onClick={() => setIndex((i) => Math.min(slides.length - 1, i + 1))} onPointerDown={() => setPaused(true)} onPointerUp={() => setPaused(false)} onPointerLeave={() => setPaused(false)} />
-        </>
-      )}
+      <button className="story-arrow story-arrow--prev" onClick={prev} disabled={index === 0} aria-label="Previous">
+        <ChevronLeft size={24} />
+      </button>
 
-      <section key={slide.id} className="story__slide">
-        {slide.body}
-      </section>
-      {last && index > 0 && (
-        <button className="story__back link" onClick={() => setIndex(0)}>
-          ↺ Replay
-        </button>
-      )}
+      <div className={`story story--${slide.theme}`}>
+        <div className="story__bars" aria-hidden>
+          {slides.map((s, i) => (
+            <span key={s.id} className="story__bar">
+              <i className={i < index ? 'is-done' : i === index && !last ? (stopped ? 'is-paused' : 'is-running') : i === index ? 'is-done' : ''} style={{ animationDuration: `${SLIDE_MS}ms` }} />
+            </span>
+          ))}
+        </div>
+        <div className="story__top">
+          <span className="story__who story__who--inline">
+            {data.avatarUrl && <img src={data.avatarUrl} alt="" />}@{data.login}
+          </span>
+          <div className="story__tools">
+            <button className="btn btn--icon" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute' : 'Mute'}>
+              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
+            <button className="btn btn--icon" onClick={onRestart} aria-label="Close">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+        {/* Phones: tap the left third to go back, the rest to go forward; hold anywhere to pause. */}
+        {!last && (
+          <>
+            <button className="story__nav story__nav--prev" aria-label="Previous" onClick={prev} {...hold} />
+            <button className="story__nav story__nav--next" aria-label="Next" onClick={next} {...hold} />
+          </>
+        )}
+
+        <section key={slide.id} className="story__slide">
+          {slide.body}
+        </section>
+        {last && index > 0 && (
+          <button className="story__back btn btn--quiet" onClick={() => setIndex(0)}>
+            <RotateCcw size={14} /> Replay
+          </button>
+        )}
+      </div>
+
+      <button className="story-arrow story-arrow--next" onClick={next} disabled={last} aria-label="Next">
+        <ChevronRight size={24} />
+      </button>
+      <p className="story-stage__hint">
+        <kbd>←</kbd> <kbd>→</kbd> move · <kbd>Space</kbd> pause · <kbd>Esc</kbd> close
+      </p>
     </div>
   );
 }
@@ -324,7 +430,7 @@ function buildSlides(w: Wrapped, onRestart: () => void): Slide[] {
           </div>
           <h2 className="story__big">{w.topRepo.name}</h2>
           <p className="story__sub">
-            ★ {compact(w.topRepo.stars)} {w.topRepo.language && `· ${w.topRepo.language}`}
+            <Star size={16} className="story__star" /> {compact(w.topRepo.stars)} {w.topRepo.language && `· ${w.topRepo.language}`}
           </p>
           {w.topRepo.description && <p className="story__desc">{w.topRepo.description}</p>}
         </>
@@ -378,7 +484,7 @@ function ShareSlide({ w, onRestart }: { w: Wrapped; onRestart: () => void }) {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   };
   const share = async () => {
-    const text = `My code sounds like ${w.genre} 🎧 (${w.persona.title}). What does yours sound like?`;
+    const text = `My code sounds like ${w.genre} (${w.persona.title}). What does yours sound like?`;
     try {
       const blob = await renderShareCard(w);
       const file = blob ? new File([blob], `sonyx-wrapped-${w.login}.png`, { type: 'image/png' }) : null;
@@ -429,13 +535,13 @@ function ShareSlide({ w, onRestart }: { w: Wrapped; onRestart: () => void }) {
       </div>
       <div className="share__actions">
         <button className="btn btn--primary" onClick={() => void share()}>
-          Share
+          <Share2 size={16} /> Share
         </button>
         <button className="btn btn--ghost" onClick={() => void download()}>
-          ⬇ Download image
+          <Download size={16} /> Download image
         </button>
-        <a className="btn btn--accent" href={listen}>
-          🎧 Hear {w.topRepo ? w.topRepo.name : 'your code'} in Sonyx
+        <a className="btn btn--ghost" href={listen}>
+          <Headphones size={16} /> Hear {w.topRepo ? w.topRepo.name : 'your code'}
         </a>
         <button className="btn btn--ghost" onClick={onRestart}>
           Wrap someone else
