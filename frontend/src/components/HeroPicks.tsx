@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchRankings, type RankingEntry } from '../api/rankings';
+import { fetchFeaturedRankings, type RankingEntry } from '../api/rankings';
 
 /** Famous repos worth hearing, chosen for variety of language and structure. */
 const FEATURED = [
@@ -18,7 +18,7 @@ export function HeroPicks({ onPick }: { onPick: (url: string) => void }) {
   const [top, setTop] = useState<RankingEntry[]>([]);
   useEffect(() => {
     let alive = true;
-    fetchRankings(3)
+    fetchFeaturedRankings(3)
       .then((rows) => alive && setTop(rows.slice(0, 3)))
       .catch(() => undefined);
     return () => {
