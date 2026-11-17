@@ -79,7 +79,7 @@ function ShopCard({ item, wearing, saved, busy, signedIn, canSignIn }: { item: S
     ) : saved ? (
       <span className="plan-badge">Equipped</span>
     ) : (
-      <button className="btn btn--primary btn--sm" onClick={() => void equip(item)}>
+      <button className="btn btn--ghost btn--sm" onClick={() => void equip(item)}>
         Equip
       </button>
     );

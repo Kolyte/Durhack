@@ -1976,3 +1976,5 @@ input[type='range']::-moz-range-thumb { background: var(--text); }
 .hero__wrapped, .hero__links { display: none; }
 .site-menu__sep { height: 1px; margin: 4px 6px; background: var(--border); }
 button.site-menu__item { width: 100%; border: 0; background: none; text-align: left; cursor: pointer; font: inherit; }
+/* The Code DNA panel stops above the view controls (they're ~300px tall), so its share tools stay reachable. */
+.dna:not(.dna--embedded) { max-height: calc(100% - var(--below-header) - 332px); }
