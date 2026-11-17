@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { audioEngine, engineStore } from '../audio/AudioEngine';
 import { useStore } from '../state/store';
 import type { TourState } from '../visualization/CameraRig';
@@ -30,7 +31,7 @@ export function TourGuide({ tour, onTour }: { tour: TourState; onTour: (a: Actio
           {tour === 'paused' && <span className="tour-guide__paused"> · paused</span>}
         </span>
         <button className="btn btn--icon" onClick={() => onTour('exit')} aria-label="Exit tour">
-          ✕
+          <X size={18} />
         </button>
       </div>
       <h2 className="tour-guide__title">{section.title}</h2>

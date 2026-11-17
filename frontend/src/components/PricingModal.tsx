@@ -1,9 +1,10 @@
+import { X } from 'lucide-react';
 import { useEffect } from 'react';
 import { accountStore, closePricing, manageSubscription, signIn, upgrade } from '../state/account';
 import { useStore } from '../state/store';
 
 const FREE = ['Any public GitHub repo', 'City, Galaxy and Tree views', 'All 7 music styles', 'Built-in file explanations', 'Leaderboard'];
-const PRO = ['Everything in Free', '✨ Gemini AI explanations for any file', '🎬 Record video clips with music', '🔒 Your private repositories', 'Bigger repos: 120 source files analysed (vs 48)', 'Support Sonyx development'];
+const PRO = ['Everything in Free', 'Gemini explanations for any file', 'Video clips of your repo with its music', 'Your private repositories', 'Bigger repos: 120 source files analysed (vs 48)', 'Support Sonyx development'];
 
 /** Free vs Pro, with the upgrade action. Payments run on Stripe Checkout (Stripe hosts the card form). */
 export function PricingModal() {
@@ -21,7 +22,7 @@ export function PricingModal() {
     <div className="modal" role="dialog" aria-modal="true" aria-labelledby="pricing-title" onMouseDown={(e) => e.target === e.currentTarget && closePricing()}>
       <div className="modal__card panel">
         <button className="btn btn--icon modal__close" onClick={closePricing} aria-label="Close">
-          ✕
+          <X size={18} />
         </button>
         <h2 id="pricing-title" className="modal__title">
           Sonyx <span className="hero__accent">Pro</span>

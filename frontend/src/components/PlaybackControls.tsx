@@ -1,3 +1,4 @@
+import { Pause, Play } from 'lucide-react';
 import { audioEngine, engineStore } from '../audio/AudioEngine';
 import { LAYERS, PRESETS, type LayerId, type PresetId } from '../audio/presets';
 import { useStore } from '../state/store';
@@ -44,7 +45,7 @@ export function PlaybackControls({ canPlay, embedded = false }: { canPlay: boole
           disabled={!canPlay}
           aria-label={s.playing ? 'Pause music' : 'Play music'}
         >
-          {s.playing ? '❚❚' : '▶'}
+          {s.playing ? <Pause size={18} /> : <Play size={18} />}
         </button>
         <button className="btn btn--ghost" onClick={() => audioEngine.setMuted(!s.muted)} aria-pressed={s.muted}>
           {s.muted ? 'Unmute' : 'Mute'}

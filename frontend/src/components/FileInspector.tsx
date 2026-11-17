@@ -1,3 +1,4 @@
+import { Loader2, Music2, Sparkles, X } from 'lucide-react';
 import { audioEngine, engineStore } from '../audio/AudioEngine';
 import { describeFile } from '../audio/composer';
 import { PRESETS } from '../audio/presets';
@@ -61,7 +62,7 @@ function WhatItsFor({ file, model, meta }: { file: FileInfo; model: RepoModel; m
     <>
       <h3 className="panel__title">
         What it's for
-        {gemini && <span className="ai-badge">✨ Gemini</span>}
+        {gemini && <span className="ai-badge">Gemini</span>}
       </h3>
       <p className="about">{shown.purpose}</p>
       {shown.details.length > 0 && (
@@ -73,7 +74,8 @@ function WhatItsFor({ file, model, meta }: { file: FileInfo; model: RepoModel; m
       )}
       {enabled && !gemini && meta && (
         <button className="btn btn--ghost btn--block btn--ai" onClick={ask} disabled={state === 'loading'}>
-          {state === 'loading' ? 'Asking Gemini…' : '✨ Explain with Gemini'}
+          {state === 'loading' ? <Loader2 size={14} className="spin" /> : <Sparkles size={14} />}
+          {state === 'loading' ? 'Asking Gemini…' : 'Explain with Gemini'}
           {!me.canUsePro && <span className="plan-badge plan-badge--pro">Pro</span>}
         </button>
       )}
@@ -113,7 +115,7 @@ export function FileInspector({
           <div className="inspector__path">{file.path}</div>
         </div>
         <button className="btn btn--icon" onClick={onClose} aria-label="Close inspector">
-          ✕
+          <X size={18} />
         </button>
       </div>
 
@@ -143,7 +145,7 @@ export function FileInspector({
       <WhatItsFor key={file.id} file={file} model={model} meta={meta} />
 
       <button className="btn btn--primary btn--block" onClick={() => audioEngine.playSignature(file)}>
-        ♪ Play musical signature
+        <Music2 size={15} /> Play this file's motif
       </button>
 
       <h3 className="panel__title">How it shapes the music</h3>

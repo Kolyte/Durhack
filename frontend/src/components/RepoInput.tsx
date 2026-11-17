@@ -1,8 +1,6 @@
 import { useState } from 'react';
-import { COMPACT_QUERY, useMediaQuery } from '../state/useMediaQuery';
+import { ArrowRight, Github, Loader2, Lock, Search } from 'lucide-react';
 import type { Phase } from '../state/useComposeStream';
-import { AccountMenu } from './AccountMenu';
-import { openShop } from '../state/shop';
 import { accountStore, connectPrivateRepos, openPricing, signIn } from '../state/account';
 import { useStore } from '../state/store';
 
@@ -12,20 +10,28 @@ function PrivateReposHint() {
   if (!me.signInAvailable || me.privateRepos) return null;
   const go = () => (!me.signedIn ? signIn('upgrade') : me.canUsePro ? connectPrivateRepos() : openPricing());
   return (
-    <button className="btn btn--accent btn--sm status__action" onClick={go}>
-      🔒 {me.signedIn && me.canUsePro ? 'Connect private repos' : 'Private repos are in Pro'}
+    <button className="btn btn--ghost btn--sm status__action" onClick={go}>
+      <Lock size={14} />
+      {me.signedIn && me.canUsePro ? 'Connect private repos' : 'Private repos are in Pro'}
     </button>
   );
 }
 
 /** "github.com/a/b", "a/b" or a full URL → a full https URL the backend understands. */
-function normalizeRepoUrl(raw: string): string {
+export function normalizeRepoUrl(raw: string): string {
   const t = raw.trim();
   if (/^https?:\/\//i.test(t)) return t;
   if (/^(www\.)?github\.com\//i.test(t)) return `https://${t}`;
+  if (/^[\w.-]+\/[\w.-]+$/.test(t)) return `https://github.com/${t}`;
   return t;
 }
 
+const shortName = (url: string) => url.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\.git$|\/+$/g, '');
+
+/**
+ * The repository search in the header (Explore). Accepts owner/name or a GitHub URL. While a repo is being
+ * read, a thin progress line runs under the field; errors show right below it.
+ */
 export function RepoInput({
   phase,
   status,
@@ -38,74 +44,42 @@ export function RepoInput({
   status: string;
   progress: number | null;
   onCompose: (url: string) => void;
-  /** Phones: once a repo is loaded, shrink to one line so the 3D view gets the screen. */
+  /** Phones: once a repo is loaded, shrink to the repo name so the 3D view gets the screen. */
   collapsible?: boolean;
   repoName?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
-  // Shorter hint on phones so it isn't cut off in the narrow box.
-  const placeholder = useMediaQuery(COMPACT_QUERY) ? 'Paste GitHub link…' : 'Paste your GitHub repo link here…';
-  // A shared link like ?repo=owner/name pre-fills the box (audio still needs a click to start).
-  const [url, setUrl] = useState(() => {
-    const repo = new URLSearchParams(window.location.search).get('repo');
-    // Otherwise empty, so the placeholder tells first-time visitors what to do.
-    return repo ? (repo.startsWith('http') ? repo : `https://github.com/${repo}`) : '';
-  });
+  const [url, setUrl] = useState(() => new URLSearchParams(window.location.search).get('repo') ?? '');
   const go = (raw: string) => {
     const target = normalizeRepoUrl(raw);
     if (!target) return;
-    const short = target.replace(/^https?:\/\/(www\.)?github\.com\//, '').replace(/\.git$|\/+$/g, '');
-    window.history.replaceState(null, '', `?repo=${encodeURIComponent(short)}`);
+    window.history.replaceState(null, '', `?repo=${encodeURIComponent(shortName(target))}`);
     setExpanded(false);
     onCompose(target);
   };
   const busy = phase === 'connecting' || phase === 'analysing';
   const showProgress = progress !== null && phase === 'analysing';
+  const progressBar = showProgress && (
+    <div className="progress" aria-hidden>
+      <div className="progress__bar" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
+    </div>
+  );
 
   if (collapsible && !expanded) {
     return (
-      <header className="topbar topbar--collapsed panel">
-        <div className="brand">
-          <span className="brand__mark" aria-hidden>
-            ◈
-          </span>
-          Sonyx
-        </div>
-        <div className={`topbar__repo${phase === 'error' ? ' status--error' : ''}`} role="status">
-          {phase === 'ready' && repoName ? repoName : status}
-          {showProgress && (
-            <div className="progress" aria-hidden>
-              <div className="progress__bar" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
-            </div>
-          )}
-        </div>
-        <a className="chip nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
-          🏆
-        </a>
-        <button className="chip nav-button" onClick={openShop} aria-label="Shop" title="Shop">
-          🛍️
+      <div className="repo-search repo-search--collapsed">
+        <button className="repo-pill" onClick={() => setExpanded(true)} aria-label="Change repository">
+          {busy ? <Loader2 size={15} className="spin" /> : <Github size={15} />}
+          <span>{phase === 'ready' && repoName ? repoName : status}</span>
+          <Search size={15} className="repo-pill__edit" />
         </button>
-        <AccountMenu compact />
-        <button className="chip" onClick={() => setExpanded(true)} aria-label="Change repository">
-          Change
-        </button>
-      </header>
+        {progressBar}
+      </div>
     );
   }
 
   return (
-    <header className="topbar panel">
-      <div className="brand">
-        <span className="brand__mark" aria-hidden>
-          ◈
-        </span>
-        Sonyx
-      </div>
-      {collapsible && (
-        <button className="btn btn--icon topbar__close" onClick={() => setExpanded(false)} aria-label="Collapse">
-          ✕
-        </button>
-      )}
+    <div className="repo-search">
       <form
         className="repo-form"
         onSubmit={(e) => {
@@ -113,35 +87,29 @@ export function RepoInput({
           go(url);
         }}
       >
+        <Github size={16} className="repo-form__icon" aria-hidden />
         <input
           className="input"
           value={url}
           onChange={(e) => setUrl(e.target.value)}
-          placeholder={placeholder}
-          aria-label="GitHub repository URL"
+          placeholder="owner/repository or GitHub URL"
+          aria-label="GitHub repository"
           spellCheck={false}
+          autoCapitalize="none"
+          autoFocus={collapsible}
         />
-        <button className="btn btn--primary" type="submit" disabled={busy || !url.trim()}>
-          {busy ? 'Composing…' : 'Compose'}
+        <button className="btn" type="submit" disabled={busy || !url.trim()}>
+          {busy ? <Loader2 size={16} className="spin" /> : <ArrowRight size={16} />}
+          <span className="repo-form__label">{busy ? 'Reading' : 'Open'}</span>
         </button>
       </form>
-      <div className={`status${phase === 'error' ? ' status--error' : ''}`} role="status">
-        {status}
-        {phase === 'error' && /private repos/i.test(status) && <PrivateReposHint />}
-        {showProgress && (
-          <div className="progress" aria-hidden>
-            <div className="progress__bar" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />
-          </div>
-        )}
-      </div>
-      {/* Page navigation, kept apart from the compose controls (input → Compose → status). */}
-      <a className="btn btn--accent nav-button" href="/ranking.html" aria-label="Leaderboard" title="Leaderboard">
-        🏆<span className="nav-button__label"> Leaderboard</span>
-      </a>
-      <button className="btn btn--ghost nav-button shop-button" onClick={openShop} aria-label="Shop" title="Shop">
-        🛍️<span className="nav-button__label"> Shop</span>
-      </button>
-      <AccountMenu />
-    </header>
+      {progressBar}
+      {(busy || phase === 'error') && (
+        <div className={`repo-status${phase === 'error' ? ' repo-status--error' : ''}`} role="status">
+          {status}
+          {phase === 'error' && /private repos/i.test(status) && <PrivateReposHint />}
+        </div>
+      )}
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+import { Clapperboard } from 'lucide-react';
 import { accountStore, openPricing } from '../state/account';
 import { canRecord, recordClip, recorderStore, stopRecording } from '../state/recorder';
 import { useStore } from '../state/store';
@@ -15,7 +16,7 @@ export function RecordButton({ repoName }: { repoName: string }) {
       onClick={() => (locked ? openPricing() : void recordClip(repoName))}
       title="Record a 15-second video of the scene with its music"
     >
-      🎬 Record clip{locked && <span className="plan-badge plan-badge--pro">Pro</span>}
+      <Clapperboard size={14} /> Record clip{locked && <span className="plan-badge plan-badge--pro">Pro</span>}
     </button>
   );
 }

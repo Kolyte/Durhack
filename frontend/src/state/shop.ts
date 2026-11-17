@@ -184,13 +184,19 @@ export async function initShop(afterLogin: string | null) {
       const item = shopStore.get().items.find((x) => x.id === bought);
       if (item && owns(bought)) {
         if (item.kind !== 'bundle') await equip(item);
-        toast(`${item.name} unlocked ✨`);
+        toast(`${item.name} unlocked and applied`);
       } else {
         toast('Payment received. Your item will appear in a moment; refresh if not.');
       }
     }
     openShop();
-  } else if (afterLogin === 'shop') {
+  } else if (afterLogin === 'shop' || bought === 'open') {
+    // "Shop" from another page links here with ?shop=open.
+    if (bought === 'open') {
+      params.delete('shop');
+      const qs = params.toString();
+      window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}`);
+    }
     openShop();
   }
 }
