@@ -7,8 +7,9 @@ import type { FileLayout } from '../layouts';
 import { livePositions, pulses, readDecay } from '../pulseBus';
 import { historyGrowth, historyState } from '../../state/history';
 import { complexityLevel } from '../../audio/composer';
-import { bodyMapFor, getWhiteTexture, shapeFor } from './geometry';
+import { bodyMapFor, getWhiteTexture, mergeStatic, shapeFor } from './geometry';
 import { createGlowMaterial } from './glow';
+import { noRaycast } from '../worlds/random';
 import type { SkinDef, StyleId } from '../../cosmetics/catalog';
 import { windowTexture } from '../../cosmetics/windows';
 
@@ -55,7 +56,7 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
   const cxBucket = Math.round(complexityLevel(file.complexity) * 8) / 8;
   const concurrent = file.concurrency > 0;
   const recipe = useMemo(
-    () => shapeFor(file.kind, mode, h, s, footprint, { complexity: cxBucket, concurrent }, style),
+    () => mergeStatic(shapeFor(file.kind, mode, h, s, footprint, { complexity: cxBucket, concurrent }, style)),
     [file.kind, mode, h, s, footprint, cxBucket, concurrent, style],
   );
   useEffect(() => () => recipe.parts.forEach((p) => p.geometry.dispose()), [recipe]);
@@ -183,6 +184,9 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
             }}
             geometry={p.geometry}
             material={materials[p.mat]}
+            // Decorative parts (halos, rings, moons) don't take part in hit-testing: cheaper pointer moves,
+            // and a planet's atmosphere doesn't block clicks on its neighbours.
+            {...(p.mat === 'glow' || p.spin ? { raycast: noRaycast } : {})}
             position={p.position ?? ORIGIN}
             rotation={p.rotation ?? ORIGIN}
             scale={p.scale ?? UNIT}

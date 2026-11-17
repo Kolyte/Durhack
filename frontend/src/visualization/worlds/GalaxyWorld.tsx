@@ -19,7 +19,8 @@ const spiralVertex = /* glsl */ `
   uniform float uBeat;
   varying vec3 vColor;
   void main() {
-    vColor = aColor * (0.85 + uBeat * 0.35);
+    // Only a faint response to the beat: the spiral fills the screen, and a strong pulse read as blinking.
+    vColor = aColor * (0.9 + uBeat * 0.06);
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     // Perspective size, clamped so close dust doesn't turn into blobs.
@@ -55,7 +56,7 @@ const nebulaFragment = /* glsl */ `
   }
   float fbm(vec2 p) {
     float v = 0.0, a = 0.5;
-    for (int i = 0; i < 5; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; }
+    for (int i = 0; i < 4; i++) { v += a * noise(p); p *= 2.03; a *= 0.5; }
     return v;
   }
   void main() {
@@ -219,7 +220,7 @@ export function GalaxyWorld({ visible, radius, lowPower }: { visible: boolean; r
     if (!visible) return;
     spiralMat.uniforms.uPixelRatio.value = state.gl.getPixelRatio();
     spiralMat.uniforms.uBeat.value = pulses.ground;
-    coreMat.uniforms.uIntensity.value = 0.42 + pulses.ground * 0.15;
+    coreMat.uniforms.uIntensity.value = 0.42 + pulses.ground * 0.04;
     if (reducedMotion) return;
     if (spin.current) spin.current.rotation.y += delta * 0.012;
     if (belt.current) belt.current.rotation.y += delta * 0.02;

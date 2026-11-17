@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { PerformanceMonitor } from '@react-three/drei';
 import { Bloom, EffectComposer, Vignette } from '@react-three/postprocessing';
@@ -47,22 +47,37 @@ interface Props {
 const LOW_POWER = isTouchDevice();
 
 /**
- * Render quality steps, lowest first. We start at the best step this device is allowed and only step
- * down if the frame rate actually drops (and back up when it recovers). Phones have 3x screens, so a
- * fixed low pixel ratio with no anti-aliasing looked blurry and jagged there; most phones handle 2x
- * with MSAA fine.
+ * Pixel-ratio steps, lowest first. We start at the best step this device is allowed and only ever step
+ * DOWN, at most twice, when the frame rate stays low. Never back up: every change resizes the
+ * post-processing buffers, and flipping back and forth showed as black flashes ("blinking").
+ * Anti-aliasing (MSAA) is fixed for the session for the same reason.
  */
-const QUALITY = [
-  { dpr: 1, msaa: 0 },
-  { dpr: 1.25, msaa: 0 },
-  { dpr: 1.5, msaa: 2 },
-  { dpr: 1.5, msaa: 4 },
-  { dpr: 2, msaa: 4 },
-] as const;
+const DPR_STEPS = [1, 1.25, 1.5, 2] as const;
 const deviceDpr = typeof window === 'undefined' ? 1 : window.devicePixelRatio || 1;
-// Desktops keep their previous ceiling (1.5x): big screens at 2x with bloom cost a lot of GPU.
-// Touch devices may go to 2x, which is where their dense screens look sharp.
-const MAX_QUALITY = LOW_POWER && deviceDpr >= 2 ? QUALITY.length - 1 : 3;
+// Desktops top out at 1.5x (big screens at 2x with bloom cost a lot of GPU); phones may use 2x.
+const MAX_STEP = LOW_POWER && deviceDpr >= 2 ? 3 : 2;
+const MSAA = 4;
+const MAX_DECLINES = 2;
+
+/** Rounds a world radius to steps of ~26%, so backgrounds don't rebuild on every streamed file. */
+const settle = (r: number) => Math.pow(2, Math.round(Math.log2(Math.max(1, r)) * 3) / 3);
+
+/**
+ * Fog follows the camera: haze starts a little behind what you're looking at. With fixed fog distances,
+ * zooming out far put the whole scene inside the fog and the screen went black.
+ */
+function FogFollower({ radius, far }: { radius: number; far: number }) {
+  const { camera, scene } = useThree();
+  const controls = useThree((s) => s.controls) as unknown as { target?: THREE.Vector3 } | null;
+  useFrame(() => {
+    const fog = scene.fog as THREE.Fog | null;
+    if (!fog) return;
+    const d = controls?.target ? camera.position.distanceTo(controls.target) : radius * 1.6;
+    fog.near = d + radius * 0.3;
+    fog.far = d + radius * far;
+  });
+  return null;
+}
 
 /** Maps 0–1 onto a list of colours (a skin's own ramp). */
 function rampFrom(colors: THREE.Color[], t: number): THREE.Color {
@@ -154,19 +169,21 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
   const bg = city ? world.background : PALETTE.bg;
   const fogColor = city ? world.fog : PALETTE.bg;
 
-  const [quality, setQuality] = useState(MAX_QUALITY);
-  const q = QUALITY[quality];
+  const [step, setStep] = useState<number>(MAX_STEP);
+  const declines = useRef(0);
 
   return (
     <Canvas
       camera={{ position: [14, 12, 18], fov: 48, near: 0.1, far: 600 }}
       // Pixel ratio and MSAA adapt to the frame rate (see QUALITY). The post-processing pass does the
       // anti-aliasing, so the default framebuffer doesn't need its own.
-      dpr={Math.min(q.dpr, Math.max(1, deviceDpr))}
+      dpr={Math.min(DPR_STEPS[step], Math.max(1, deviceDpr))}
       gl={{ antialias: false, powerPreference: 'high-performance' }}
       onCreated={({ gl }) => {
         // Querying shader logs forces the driver to finish compiling synchronously; skip it in production.
         gl.debug.checkShaderErrors = import.meta.env.DEV;
+        // Development only: expose the renderer so performance scripts can read draw-call counts.
+        if (import.meta.env.DEV) (window as unknown as { __sonyxGl?: THREE.WebGLRenderer }).__sonyxGl = gl;
         // Sharp building windows at grazing angles (the usual phone viewing angle).
         getWindowTexture().anisotropy = Math.min(8, gl.capabilities.getMaxAnisotropy());
       }}
@@ -174,12 +191,17 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
       style={{ background: bg }}
     >
       <PerformanceMonitor
-        flipflops={4}
-        onDecline={() => setQuality((v) => Math.max(0, v - 1))}
-        onIncline={() => setQuality((v) => Math.min(MAX_QUALITY, v + 1))}
+        ms={500}
+        iterations={10}
+        onDecline={() => {
+          if (declines.current >= MAX_DECLINES) return;
+          declines.current += 1;
+          setStep((v) => Math.max(0, v - 1));
+        }}
       />
       <color attach="background" args={[bg]} />
-      <fog attach="fog" args={[fogColor, layout.radius * 1.2, layout.radius * (city && world.sky ? 6 : 4.5)]} />
+      {/* Distances are set every frame by <FogFollower>; fixed args keep the fog object stable. */}
+      <fog attach="fog" args={[fogColor, 20, 120]} />
       <ambientLight intensity={0.35} />
       <hemisphereLight args={['#7dd3fc', '#1e1b4b', 0.35]} />
       <pointLight position={[layout.radius, layout.radius, layout.radius]} intensity={60} distance={layout.radius * 5} color={PALETTE.teal} />
@@ -188,13 +210,14 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
       <group visible={!city || world.stars}>
         <Starfield count={LOW_POWER ? 5000 : 12000} />
       </group>
-      <CityWorld world={world} visible={city} radius={layout.mode === 'city' ? layout.radius : 12} lowPower={LOW_POWER} />
+      <CityWorld world={world} visible={city} radius={settle(layout.mode === 'city' ? layout.radius : 12)} lowPower={LOW_POWER} />
+      <FogFollower radius={layout.radius} far={city && world.sky ? 4.5 : 3.2} />
       <SkinAnimator skin={skin} />
       <ShootingStars />
       <Ground mode={mode} radius={layout.radius} />
       <CityScenery plan={cityPlan} visible={mode === 'city'} world={world} />
-      <GalaxyWorld visible={mode === 'galaxy'} radius={layout.mode === 'galaxy' ? layout.radius : 12} lowPower={LOW_POWER} />
-      <TreeWorld visible={mode === 'tree'} radius={layout.mode === 'tree' ? layout.radius : 10} height={layout.mode === 'tree' ? layout.center[1] * 2 : 8} lowPower={LOW_POWER} />
+      <GalaxyWorld visible={mode === 'galaxy'} radius={settle(layout.mode === 'galaxy' ? layout.radius : 12)} lowPower={LOW_POWER} />
+      <TreeWorld visible={mode === 'tree'} radius={settle(layout.mode === 'tree' ? layout.radius : 10)} height={settle(layout.mode === 'tree' ? layout.center[1] * 2 : 8)} lowPower={LOW_POWER} />
       {/* Always mounted (one hidden twig outside the tree view) so the bark shader stays compiled. */}
       <TreeBranches key={mode === 'tree' ? layout.branches.length : 0} branches={mode === 'tree' ? layout.branches : WARM_BRANCH} visible={mode === 'tree'} />
       <ShaderWarmup token={`${model.files.size}-${model.groups.length}`} />
@@ -256,7 +279,7 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
 
       <LabelProjector layout={layout} mode={mode} />
       <CameraRig layout={layout} tour={tour} selectedId={selectedId} onInterrupt={onTourInterrupt} />
-      <EffectComposer multisampling={q.msaa}>
+      <EffectComposer multisampling={MSAA}>
         <Bloom intensity={0.75} luminanceThreshold={0.55} luminanceSmoothing={0.3} mipmapBlur />
         <Vignette offset={0.25} darkness={0.65} />
       </EffectComposer>
