@@ -7,6 +7,7 @@ import { HoverTooltip } from './components/HoverTooltip';
 import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
+import { HeroPicks } from './components/HeroPicks';
 import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
 import { Toast } from './components/Toast';
@@ -218,6 +219,7 @@ export default function App() {
             concurrency becomes rhythm.
           </p>
           <p className="hero__hint">Paste a public GitHub repo URL above, then press Compose. Sound on 🎧</p>
+          <HeroPicks onPick={onCompose} />
           <a className="hero__wrapped" href="/wrapped.html">
             ✨ New: <b>Sonyx Wrapped</b>, your GitHub year as music →
           </a>
