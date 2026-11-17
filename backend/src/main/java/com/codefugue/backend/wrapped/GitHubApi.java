@@ -8,6 +8,14 @@ public interface GitHubApi {
     /** GET https://api.github.com{path}; throws {@link GitHubException} on HTTP errors. */
     JsonNode get(String path) throws Exception;
 
+    /** A response body plus its Link header (pagination), optionally with a user's own token. */
+    record Page(JsonNode body, String link) {
+    }
+
+    default Page page(String path, String userToken) throws Exception {
+        return new Page(get(path), null);
+    }
+
     class GitHubException extends RuntimeException {
         private final int status;
 

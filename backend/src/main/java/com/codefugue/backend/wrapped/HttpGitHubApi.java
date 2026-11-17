@@ -30,13 +30,19 @@ public class HttpGitHubApi implements GitHubApi {
 
     @Override
     public JsonNode get(String path) throws Exception {
+        return page(path, null).body();
+    }
+
+    @Override
+    public Page page(String path, String userToken) throws Exception {
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create("https://api.github.com" + path))
                 .header("User-Agent", "Sonyx")
                 .header("Accept", "application/vnd.github+json")
                 .timeout(Duration.ofSeconds(15));
-        if (!token.isEmpty()) req.header("Authorization", "Bearer " + token);
+        String auth = userToken != null && !userToken.isBlank() ? userToken : token;
+        if (!auth.isEmpty()) req.header("Authorization", "Bearer " + auth);
         HttpResponse<String> res = http.send(req.build(), HttpResponse.BodyHandlers.ofString());
         if (res.statusCode() >= 400) throw new GitHubException(res.statusCode(), "GitHub HTTP " + res.statusCode());
-        return mapper.readTree(res.body());
+        return new Page(mapper.readTree(res.body()), res.headers().firstValue("Link").orElse(null));
     }
 }

@@ -17,6 +17,7 @@ import { CityWorld } from './worlds/CityWorld';
 import { skinDef, styleId, worldDef, type SkinDef } from '../cosmetics/catalog';
 import { windowTexture } from '../cosmetics/windows';
 import { activeLook, shopStore } from '../state/shop';
+import { historyStore } from '../state/history';
 import { useStoreSelector } from '../state/store';
 import { ShootingStars } from './ShootingStars';
 import { LabelProjector } from './HubLabels';
@@ -134,6 +135,8 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
   const style = styleId(useStoreSelector(shopStore, (s) => activeLook(s).style));
   const worldId = useStoreSelector(shopStore, (s) => activeLook(s).world);
   const skin = skinDef(skinId);
+  // Cables are hidden during the time-lapse (their ends may not exist yet).
+  const historyOn = useStoreSelector(historyStore, (s) => s.open && !!s.data);
   const world = worldDef(worldId);
   const city = mode === 'city';
   const ramp = city ? skin.ramp : null;
@@ -237,7 +240,7 @@ export function CodeSculpture({ model, layout, mode, overlay, selectedId, active
         );
       })}
 
-      {model.edges.map((e) => {
+      {!historyOn && model.edges.map((e) => {
         const touches = !!selected && (e.sourceId === selected.id || e.targetId === selected.id);
         return (
           <DependencyCable

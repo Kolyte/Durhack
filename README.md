@@ -250,6 +250,14 @@ Every repo gets a README badge and a share link:
 - The 30-day most-voted battles are listed as "Popular battles".
 - Entry points: the landing page, and **⚔️ Battle** next to Share in the Code DNA panel (it pre-fills the current repo).
 
+## History time-lapse
+
+**⏳ Time-lapse** (under Guided tour) replays how the city grew:
+- Sonyx samples 12 commits evenly across the default branch's whole history.
+- Each building appears when its file was created and grows to its size at each moment. The panel shows the date, the file count and that moment's commit message, with play/pause and a scrubber.
+- `POST /api/history` takes `{repo, paths, points}`. It only reports sizes for the files currently drawn, so the response stays small even for huge repos. It costs about 26 GitHub requests, and public results are cached for six hours.
+- Private repos use the user's own token and are not cached.
+
 ## Embeddable player
 
 Any repo can be embedded in docs, blogs or portfolios. Use **</> Embed** next to Share to copy the code:

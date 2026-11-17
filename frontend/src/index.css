@@ -1618,3 +1618,30 @@ input[type='range']::-moz-range-thumb {
 .status__action { margin-left: 8px; vertical-align: middle; }
 .account__who .plan-badge--pro { color: #1a0b1f; }
 .account__menu a.btn { text-decoration: none; }
+
+/* ---------- History time-lapse ---------- */
+.history {
+  position: fixed;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 25;
+  width: min(440px, calc(100vw - 32px));
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  animation: shop-up 0.25s ease both;
+}
+.history__head { display: flex; justify-content: space-between; align-items: center; }
+.history__when { display: flex; align-items: baseline; gap: 10px; }
+.history__when strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.history__when span { color: var(--muted); font-size: 12.5px; }
+.history__msg { margin: 0; color: var(--muted); font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.history__controls { display: flex; align-items: center; gap: 10px; }
+.history__controls input { flex: 1; accent-color: var(--teal); }
+.history .btn--round { width: 34px; height: 34px; flex: none; }
+.history .note { margin: 0; }
+@media (max-width: 760px), (max-height: 520px) {
+  .history { top: auto; bottom: calc(var(--safe-b, 0px) + 150px); }
+}
+.tour .btn--ghost { margin-top: 6px; }

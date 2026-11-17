@@ -5,6 +5,7 @@ import type { FileInfo } from '../../model/repoModel';
 import type { ViewMode } from '../../types';
 import type { FileLayout } from '../layouts';
 import { livePositions, pulses, readDecay } from '../pulseBus';
+import { historyGrowth, historyState } from '../../state/history';
 import { complexityLevel } from '../../audio/composer';
 import { bodyMapFor, getWhiteTexture, shapeFor } from './geometry';
 import { createGlowMaterial } from './glow';
@@ -43,6 +44,7 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
   const [hovered, setHovered] = useState(false);
   const pos = useRef(new THREE.Vector3(...layout.pos));
   const appear = useRef(0);
+  const growth = useRef(1);
   const lastMode = useRef(mode);
   const phase = useMemo(() => (file.id.length * 13.7) % (Math.PI * 2), [file.id]);
 
@@ -118,7 +120,10 @@ export const FileShape = memo(function FileShape({ file, layout, mode, color, me
     const grow = 1 - Math.pow(1 - appear.current, 3);
 
     const pulse = readDecay(pulses.node, file.id, delta, 3);
-    const scale = grow * (1 + pulse * (mode === 'city' ? 0.12 : 0.28) + (emphasis === 'selected' ? 0.1 : 0) + (hovered ? 0.05 : 0));
+    // Time-lapse: files grow from nothing to today's size as their history plays.
+    const targetGrowth = historyState.active ? (historyGrowth.get(file.id) ?? 0) : 1;
+    growth.current += (targetGrowth - growth.current) * (1 - Math.exp(-delta * 8));
+    const scale = Math.max(0.0001, growth.current) * grow * (1 + pulse * (mode === 'city' ? 0.12 : 0.28) + (emphasis === 'selected' ? 0.1 : 0) + (hovered ? 0.05 : 0));
     inner.current.scale.lerp(tmpVec.set(scale, scale, scale), 1 - Math.exp(-delta * 12));
     for (const sp of spinners.current) sp.rotation.z += delta * (0.3 + file.concurrency * 0.08);
 

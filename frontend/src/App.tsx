@@ -13,6 +13,8 @@ import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
 import { Toast } from './components/Toast';
 import { ShopPanel } from './components/ShopPanel';
+import { HistoryPanel } from './components/HistoryPanel';
+import { closeHistory, openHistory } from './state/history';
 import { RecordingIndicator } from './components/RecordButton';
 import { initShop, shopStore } from './state/shop';
 import { initAccount } from './state/account';
@@ -89,6 +91,15 @@ export default function App() {
     },
     [compose],
   );
+
+  // Time-lapse: watch the city grow through the repo's history (closes when another repo is composed).
+  const onHistory = useCallback(() => {
+    if (!meta) return;
+    setMode('city');
+    setSheet(null);
+    void openHistory(meta, [...model.files.keys()]);
+  }, [meta, model]);
+  useEffect(() => closeHistory, [meta?.repoName]);
 
   // Opened from the leaderboard or a shared link (?repo=owner/name): compose straight away.
   // Browsers only allow sound after a user gesture, so until the first click we show a hint
@@ -288,6 +299,7 @@ export default function App() {
       />
       <PricingModal />
       <ShopPanel />
+      <HistoryPanel />
       <RecordingIndicator />
       <Toast />
 
@@ -314,6 +326,7 @@ export default function App() {
               onMode={setMode}
               onOverlay={setOverlay}
               onTour={onTour}
+              onHistory={onHistory}
             />
             <PlaybackControls canPlay={hasRepo} />
           </div>
@@ -337,6 +350,7 @@ export default function App() {
                   onMode={setMode}
                   onOverlay={setOverlay}
                   onTour={onTour}
+                  onHistory={onHistory}
                 />
               )}
               {sheet === 'music' && <PlaybackControls embedded canPlay={hasRepo} />}
