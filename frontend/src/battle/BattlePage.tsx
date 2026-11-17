@@ -1,3 +1,6 @@
+import { Headphones, Share2, Star, Swords, Trophy } from 'lucide-react';
+import { SiteHeader } from '../components/SiteHeader';
+import '../components/siteShell.css';
 import { useCallback, useEffect, useState } from 'react';
 import { analyzeRepo, type Analysis } from '../api/analyze';
 import { apiFetch } from '../api/http';
@@ -58,14 +61,11 @@ export function BattlePage() {
 
   const ready = sides[0].state === 'ready' && sides[1].state === 'ready';
   return (
+    <>
+    <SiteHeader active="battles" />
     <div className="battle">
       <header className="battle__head">
-        <a className="wrapped__brand" href="/">
-          ◈ Sonyx
-        </a>
-        <h1>
-          Repo <span className="hero__accent">Battles</span>
-        </h1>
+        <h1>Battles</h1>
         <p>Two codebases, head to head. Whose Code DNA wins, and which one sounds better?</p>
         <form
           className="battle__form"
@@ -78,7 +78,7 @@ export function BattlePage() {
           <span className="battle__vs">VS</span>
           <input className="input" value={b} onChange={(e) => setB(e.target.value)} placeholder="owner/repo" aria-label="Second repository" spellCheck={false} />
           <button className="btn btn--accent" type="submit" disabled={!a.trim() || !b.trim()}>
-            ⚔️ Battle
+            <Swords size={16} /> Compare
           </button>
         </form>
         <div className="battle__suggest">
@@ -101,6 +101,7 @@ export function BattlePage() {
       )}
       <PopularBattles onPick={run} />
     </div>
+    </>
   );
 }
 
@@ -127,10 +128,10 @@ function SideCard({ name, side, color }: { name: string; side: Side; color: 'tea
         <>
           <div className="fighter__score">{score.toFixed(1)}</div>
           <p className="note">
-            {side.result.meta.stars.toLocaleString()} ★ · {side.result.dna.analyzedCodeFiles} files analysed
+            <Star size={12} /> {side.result.meta.stars.toLocaleString()} · {side.result.dna.analyzedCodeFiles} files analysed
           </p>
           <a className="btn btn--ghost btn--sm" href={`/?repo=${encodeURIComponent(name)}`}>
-            🎧 Hear it
+            <Headphones size={14} /> Hear it
           </a>
         </>
       )}
@@ -148,7 +149,7 @@ function Results({ a, b, names }: { a: Analysis; b: Analysis; names: [string, st
   const [copied, setCopied] = useState(false);
 
   const share = async () => {
-    const text = winner === null ? `${names[0]} vs ${names[1]}: a perfect tie on Sonyx ⚔️` : `${names[winner]} beats ${names[1 - winner]} on Sonyx (${Math.max(sa, sb).toFixed(1)} vs ${Math.min(sa, sb).toFixed(1)}) ⚔️ Do you agree?`;
+    const text = winner === null ? `${names[0]} vs ${names[1]}: a perfect tie on Sonyx` : `${names[winner]} beats ${names[1 - winner]} on Sonyx (${Math.max(sa, sb).toFixed(1)} vs ${Math.min(sa, sb).toFixed(1)}). Do you agree?`;
     const url = window.location.href;
     try {
       if (navigator.share) return void (await navigator.share({ text, url }));
@@ -166,7 +167,7 @@ function Results({ a, b, names }: { a: Analysis; b: Analysis; names: [string, st
           <h2>It's a tie!</h2>
         ) : (
           <h2>
-            🏆 <span className={winner === 0 ? 'c-teal' : 'c-pink'}>{names[winner]}</span> wins
+            <Trophy size={26} className="results__trophy" /> <span className={winner === 0 ? 'c-teal' : 'c-pink'}>{names[winner]}</span> wins
           </h2>
         )}
         <p>
@@ -194,7 +195,7 @@ function Results({ a, b, names }: { a: Analysis; b: Analysis; names: [string, st
       <Vote names={names} />
       <div className="results__actions">
         <button className="btn btn--primary" onClick={() => void share()}>
-          ↗ Share this battle
+          <Share2 size={15} /> Share this battle
         </button>
         {copied && <span className="note">Link copied</span>}
       </div>
@@ -299,7 +300,7 @@ function PopularBattles({ onPick }: { onPick: (a: string, b: string) => void }) 
   if (!list.length) return null;
   return (
     <section className="popular">
-      <h2>🔥 Popular battles</h2>
+      <h2>Popular battles</h2>
       <ul>
         {list.map((t) => (
           <li key={t.a + t.b}>

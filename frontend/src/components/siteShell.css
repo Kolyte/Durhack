@@ -1,0 +1,21 @@
+/* Pages other than Explore (leaderboard, battles): normal document scrolling under the shared header. */
+html,
+body,
+#root {
+  height: auto;
+  min-height: 100%;
+  overflow: auto;
+}
+
+body {
+  background: radial-gradient(1200px 420px at 50% -10%, rgba(60, 207, 191, 0.06), transparent 60%), var(--bg);
+  background-attachment: fixed;
+}
+
+a {
+  color: var(--accent);
+}
+
+.site-header a {
+  color: inherit;
+}

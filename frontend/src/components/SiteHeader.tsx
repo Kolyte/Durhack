@@ -3,6 +3,8 @@ import { Compass, Disc3, Menu, ShoppingBag, Swords, Trophy, X } from 'lucide-rea
 import { accountStore, loadMe } from '../state/account';
 import { AccountMenu } from './AccountMenu';
 import { Logo } from './Logo';
+import { PricingModal } from './PricingModal';
+import { Toast } from './Toast';
 
 export type Section = 'explore' | 'leaderboard' | 'battles' | 'wrapped';
 
@@ -109,6 +111,13 @@ export function SiteHeader({
             </a>
           )}
         </div>
+      )}
+      {/* Explore mounts these itself; other pages get them here so menu actions (upgrade, messages) work. */}
+      {!floating && (
+        <>
+          <PricingModal />
+          <Toast />
+        </>
       )}
     </header>
   );

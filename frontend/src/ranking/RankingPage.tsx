@@ -1,3 +1,6 @@
+import { Star } from 'lucide-react';
+import { SiteHeader } from '../components/SiteHeader';
+import '../components/siteShell.css';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   composerHref,
@@ -77,33 +80,21 @@ export function RankingPage() {
   const sorted = useMemo(() => sortRankings(rows, sort), [rows, sort]);
 
   return (
+    <>
+    <SiteHeader active="leaderboard">
+      <span className={`live${live ? ' live--on' : ''}`} title={live ? 'Updates arrive in real time' : 'Reconnecting…'}>
+        <span className="live__dot" aria-hidden />
+        {live ? 'Live' : 'Offline'}
+      </span>
+    </SiteHeader>
     <div className="ranking">
-      <header className="topbar topbar--static panel">
-        <a className="brand brand--link" href="/">
-          <span className="brand__mark" aria-hidden>
-            ◈
-          </span>
-          Sonyx
-        </a>
-        <nav className="ranking__nav">
-          <a className="chip" href="/">
-            ← Composer
-          </a>
-        </nav>
-        <span className={`live${live ? ' live--on' : ''}`} title={live ? 'Updates arrive in real time' : 'Reconnecting…'}>
-          <span className="live__dot" aria-hidden />
-          {live ? 'Live' : 'Offline'}
-        </span>
-      </header>
 
       <main className="ranking__main">
         <div className="ranking__intro">
-          <h1>
-            Leaderboard<span className="hero__accent">.</span>
-          </h1>
+          <h1>Leaderboard</h1>
           <p>
             Every repository composed on Sonyx, ranked by its Code DNA. The score is the average of the five axes
-            (0–100). Click a repository to open it in the composer.
+            (0–100). Click a repository to open it.
           </p>
         </div>
 
@@ -125,7 +116,7 @@ export function RankingPage() {
         {!error && loading && <div className="ranking__notice panel">Loading…</div>}
         {!error && !loading && sorted.length === 0 && (
           <div className="ranking__notice panel">
-            No repositories yet. <a href="/">Compose one</a> and it will appear here instantly.
+            No repositories yet. <a href="/">Open one</a> and it will appear here instantly.
           </div>
         )}
 
@@ -139,7 +130,7 @@ export function RankingPage() {
                     {r.repoName}
                   </a>
                   <span className="rank-row__meta">
-                    ★ {compact.format(r.stars)} · {r.analyzedFiles}/{r.totalCodeFiles} files ·{' '}
+                    <Star size={12} className="rank-row__star" /> {compact.format(r.stars)} · {r.analyzedFiles}/{r.totalCodeFiles} files ·{' '}
                     {r.runs > 1 ? `${r.runs} runs · ` : ''}
                     {timeAgo(r.analyzedAt, now)}
                   </span>
@@ -164,5 +155,6 @@ export function RankingPage() {
         )}
       </main>
     </div>
+    </>
   );
 }
