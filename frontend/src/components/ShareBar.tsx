@@ -37,6 +37,9 @@ export function ShareBar({ repoName, score }: { repoName: string; score: number 
         ↗ Share
       </button>
       <RecordButton repoName={repoName} />
+      <a className="btn btn--ghost btn--sm" href={`/battle.html?a=${encodeURIComponent(repoName)}`}>
+        ⚔️ Battle
+      </a>
       <button className="btn btn--ghost btn--sm" onClick={() => setBadgeOpen(!badgeOpen)} aria-expanded={badgeOpen}>
         🏷️ README badge
       </button>

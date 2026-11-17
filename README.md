@@ -230,6 +230,15 @@ Every repo gets a README badge and a share link:
 - In the app, the Code DNA panel has **↗ Share** (it uses the phone's share sheet, or copies the link) and **🏷️ README badge** (copy-paste Markdown).
 - Preview images are drawn on the server with Java2D. The Docker image installs DejaVu fonts for that.
 
+## Repo Battles
+
+`/battle.html?a=owner/repo&b=owner/repo` puts two codebases head to head:
+- Both repos are analysed side by side in the browser, using the same pipeline as the composer, and both results go to the leaderboard.
+- The page shows the two Code DNAs overlaid on one radar, round-by-round bars for each axis, and a verdict.
+- Visitors vote on which one they'd rather listen to. That's one vote per visitor per battle, identified by an anonymous cookie that is stored hashed, and voting again changes your vote. Votes live in the `battle_votes` table.
+- The 30-day most-voted battles are listed as "Popular battles".
+- Entry points: the landing page, and **⚔️ Battle** next to Share in the Code DNA panel (it pre-fills the current repo).
+
 ## Running locally
 
 Quickest — everything in Docker (TimescaleDB + app; no Java or Postgres install needed):

@@ -1584,3 +1584,7 @@ input[type='range']::-moz-range-thumb {
 .rec__dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: rec-blink 1s steps(2) infinite; }
 @keyframes rec-blink { 50% { opacity: 0.2; } }
 .btn--sm .plan-badge { margin: 0 0 0 6px; }
+.hero__links { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.hero__wrapped--battle { border-color: rgba(45, 212, 191, 0.4); background: rgba(45, 212, 191, 0.08); }
+.hero__wrapped--battle:hover { background: rgba(45, 212, 191, 0.16); }
+.sharebar .btn { text-decoration: none; }

@@ -6,12 +6,13 @@ import { defineConfig } from 'vite'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // Three pages: the composer (index.html), the leaderboard (ranking.html) and Sonyx Wrapped (wrapped.html).
+    // Pages: the composer (index.html), the leaderboard (ranking.html), Sonyx Wrapped (wrapped.html) and repo battles (battle.html).
     rolldownOptions: {
       input: {
         main: resolve(__dirname, 'index.html'),
         ranking: resolve(__dirname, 'ranking.html'),
         wrapped: resolve(__dirname, 'wrapped.html'),
+        battle: resolve(__dirname, 'battle.html'),
       },
     },
   },

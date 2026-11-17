@@ -221,9 +221,14 @@ export default function App() {
           </p>
           <p className="hero__hint">Paste a public GitHub repo URL above, then press Compose. Sound on 🎧</p>
           <HeroPicks onPick={onCompose} />
-          <a className="hero__wrapped" href="/wrapped.html">
-            ✨ New: <b>Sonyx Wrapped</b>, your GitHub year as music →
-          </a>
+          <div className="hero__links">
+            <a className="hero__wrapped" href="/wrapped.html">
+              ✨ New: <b>Sonyx Wrapped</b>, your GitHub year as music →
+            </a>
+            <a className="hero__wrapped hero__wrapped--battle" href="/battle.html">
+              ⚔️ <b>Repo Battles</b>: which codebase sounds better? →
+            </a>
+          </div>
         </div>
       )}
 
