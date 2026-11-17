@@ -23,6 +23,7 @@ services:
       STRIPE_PRICE_LABEL: ${STRIPE_PRICE_LABEL:-}
       APP_BASE_URL: ${APP_BASE_URL:-}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      SHOP_CURRENCY: ${SHOP_CURRENCY:-gbp}
     expose:
       - "8080"
 

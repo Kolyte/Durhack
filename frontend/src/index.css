@@ -1486,7 +1486,7 @@ input[type='range']::-moz-range-thumb {
     right: 8px;
     bottom: 8px;
     width: auto;
-    max-height: 62dvh;
+    max-height: 52dvh;
     animation-name: shop-up;
   }
   @keyframes shop-up {
@@ -1495,3 +1495,16 @@ input[type='range']::-moz-range-thumb {
   .shop-card { grid-template-columns: 64px 1fr auto; }
   .shop-card__preview { width: 64px; height: 52px; }
 }
+
+.hero__wrapped {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(244, 114, 182, 0.4);
+  background: rgba(244, 114, 182, 0.1);
+  color: var(--text);
+  text-decoration: none;
+  pointer-events: auto;
+}
+.hero__wrapped:hover { background: rgba(244, 114, 182, 0.2); }

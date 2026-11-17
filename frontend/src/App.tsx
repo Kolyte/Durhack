@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { submitRanking } from './api/rankings';
 import { audioEngine, engineStore } from './audio/AudioEngine';
+import { PRESETS, type PresetId } from './audio/presets';
 import { FileInspector } from './components/FileInspector';
 import { HoverTooltip } from './components/HoverTooltip';
 import { hoverStore } from './state/hover';
@@ -92,9 +93,13 @@ export default function App() {
   const [needsSound, setNeedsSound] = useState(false);
   const autoComposed = useRef(false);
   useEffect(() => {
-    const repo = new URLSearchParams(window.location.search).get('repo');
+    const params = new URLSearchParams(window.location.search);
+    const repo = params.get('repo');
     if (!repo || autoComposed.current) return;
     autoComposed.current = true;
+    // Links from Sonyx Wrapped pick the music style too (?preset=techno).
+    const preset = params.get('preset');
+    if (preset && preset in PRESETS) audioEngine.setPreset(preset as PresetId);
     onCompose(repo.startsWith('http') ? repo : `https://github.com/${repo}`, false);
     // Some browsers allow audio here (e.g. after interacting with the site); only hint if they don't.
     audioEngine.unlock().then(() => setNeedsSound(false), () => {});
@@ -213,6 +218,9 @@ export default function App() {
             concurrency becomes rhythm.
           </p>
           <p className="hero__hint">Paste a public GitHub repo URL above, then press Compose. Sound on 🎧</p>
+          <a className="hero__wrapped" href="/wrapped.html">
+            ✨ New: <b>Sonyx Wrapped</b>, your GitHub year as music →
+          </a>
         </div>
       )}
 

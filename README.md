@@ -10,13 +10,13 @@ Analysis events stream over WebSockets into a **Tone.js** engine that composes i
 
 - **Three views of the same repo.**
   - *Code City*: one connected city. Directories are districts packed along a street grid with lane markings and streetlights. Gaps become parks with trees, and a river runs through the middle with bridges where the streets cross it. Files are buildings with lit windows (height = size), and imports are glowing arcs.
-  - *Galaxy*: directories are stars and files orbit them as planets (size = connectivity).
-  - *Code Tree*: the repo is the trunk, directories branch off it, files grow as leaves, and root-level files sit around the base like roots.
+  - *Galaxy*: directories are suns with coronas, and files orbit them as planets (size = connectivity), all above a slowly turning spiral galaxy with nebulae and an asteroid belt.
+  - *Code Tree*: the repo is the trunk, directories branch off it, files grow as leaves, and root-level files sit around the base like roots. It stands on a glowing forest floor with mushrooms and flowers, under a moon, with fireflies and falling petals.
 - **Shapes by file role.**
   - In the City, a source file's building depends on its complexity: a low-rise block (simple), an office with setbacks (moderate), a tower with an antenna (complex) or a tapered spire skyscraper (very complex). Files that use concurrency get a rooftop beacon.
   - Also in the City: modules are landmark towers with a halo ring, tests are research labs with a rooftop dish, docs are libraries with a pediment, and config files are utility houses with pyramid roofs.
-  - In the Galaxy: crystals, ringed planets, octahedra, tori and moons.
-  - In the Tree: leaves, blossoms, crystals, flowers and buds.
+  - In the Galaxy: rocky, ocean and gas-giant planets with atmospheres (rings for async code, moons for complex code), ringed gas giants with moons for modules, space stations for tests, ice crystals for config and cratered moons for docs.
+  - In the Tree: leaf clusters, glowing fruit, crystals, flowers and buds.
 - **Metric overlay.** Colour by complexity, file size, dependencies or concurrency (teal → sky → lavender → pink).
 - **Music that fits together.** Chord progressions and chord-aware melodies stay in D Dorian, scheduled on `Tone.Transport`. There are seven presets: **Ambient** (default), **Lo-fi**, **Cinematic**, **Electronic**, **Techno**, **Deep House** and **Synthwave**.
 - **Built-in instruments, all synthesised (no samples to download or license).**
@@ -155,11 +155,11 @@ GITHUB_CLIENT_SECRET=...
    - **Locally**, with the [Stripe CLI](https://docs.stripe.com/stripe-cli), run:
 
      ```bash
-     stripe listen --forward-to localhost:8080/api/stripe/webhook --events customer.subscription.created,customer.subscription.updated,customer.subscription.deleted
+     stripe listen --forward-to localhost:8080/api/stripe/webhook --events customer.subscription.created,customer.subscription.updated,customer.subscription.deleted,checkout.session.completed,checkout.session.async_payment_succeeded
      ```
 
      It prints a `whsec_...` signing secret.
-   - **In production**, go to Developers → Webhooks → Add endpoint and enter `https://<your-domain>/api/stripe/webhook` with those three `customer.subscription.*` events. Copy its signing secret.
+   - **In production**, go to Developers → Webhooks → Add endpoint and enter `https://<your-domain>/api/stripe/webhook` with these events: `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted` (Pro) and `checkout.session.completed`, `checkout.session.async_payment_succeeded` (shop). Copy its signing secret.
 6. Add to the env file:
 
    ```
@@ -168,6 +168,8 @@ GITHUB_CLIENT_SECRET=...
    STRIPE_WEBHOOK_SECRET=whsec_...
    STRIPE_PRICE_LABEL=£4.99/month
    APP_BASE_URL=https://<your-domain>
+   # Optional: shop currency (default gbp)
+   SHOP_CURRENCY=gbp
    ```
 
 7. To test, sign in, open **Upgrade to Pro** and pay with the card `4242 4242 4242 4242` (any future date, any CVC). You return to Sonyx and the account menu shows **PRO** once the webhook arrives, which takes a few seconds.
@@ -182,6 +184,38 @@ Before charging real customers:
 Notes:
 - Sessions are kept in server memory, so a restart signs everyone out. Subscriptions are safe in the database and Stripe.
 - `ALLOWED_ORIGINS` (comma-separated) is only needed if another site must open the WebSocket. Same-origin always works.
+
+## Sonyx Shop (cosmetics)
+
+People can make Code City their own, and support the project, with one-time purchases. Open it with **🛍️ Shop** in the top bar. Every item can be tried on live before buying.
+
+| Kind | Items (price) |
+|---|---|
+| **Skins**: materials, colours, windows | Neon (free) · Cyberpunk £1.99 · Gold Rush £1.99 · Glacier £1.99 · Volcanic £2.49 · Matrix, with falling code, £2.49 · Candy £1.49 |
+| **Buildings**: architecture | Classic Skyline (free) · Future City £2.99 · Kingdom £2.99 · Pagoda £2.99 |
+| **Worlds**: sky, ground, water, trees, weather | Night City (free) · Synthwave Sunset £2.49 · Arctic Aurora £2.49 · Neon Rain £2.49 · Desert Dusk £1.99 · Sakura Spring £1.99 · Lunar Base £2.99 |
+| **Bundle** | Everything Pack £9.99 |
+
+How it works:
+- **Prices live on the server** in `backend/.../shop/ShopCatalog.java`. The browser only sends an item id, so nobody can change what they pay. Change prices or add items there. Their visuals live in `frontend/src/cosmetics/catalog.ts`, under the same id.
+- **Buying** opens Stripe Checkout as a one-time payment. The item is granted only when Stripe's signed `checkout.session.completed` webhook says the payment went through. Repeated webhooks are harmless.
+- **Your chosen look** is saved per account, so it follows you across devices. Signed-out visitors can use the free items, and their choice is kept in that browser.
+- **Demo mode:** without `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET`, everything is unlocked for everyone.
+- **Currency** is `SHOP_CURRENCY` (default `gbp`).
+- **Fair play:** looks are cosmetic only. They never change how code is analysed, scored or ranked.
+
+## Sonyx Wrapped
+
+`/wrapped.html?u=<github-username>` turns a GitHub profile into a short music story:
+- top languages shown as genres
+- the most-starred repo as "your biggest hit"
+- this year's activity, a persona, a tempo and a key
+- a generated soundtrack in that key
+- a share card (1080×1350 PNG) and a link that opens the hit repo in Sonyx with the matching music style
+
+Details:
+- It uses public data only: `GET /api/wrapped/{login}` reads the profile and public repositories through the GitHub API (set `GITHUB_TOKEN` for higher rate limits) and caches each result for an hour.
+- Entry points: the landing page link, and **🎧 Your Sonyx Wrapped** in the account menu.
 
 ## Running locally
 
