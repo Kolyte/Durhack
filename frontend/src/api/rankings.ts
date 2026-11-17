@@ -39,6 +39,12 @@ export async function fetchRankings(limit = 200): Promise<RankingEntry[]> {
 }
 
 /** Records a finished composition. Best effort: the music never waits on (or breaks because of) the ranking. */
+/** Top entries for the landing page; empty (not an error) when the leaderboard database is offline. */
+export async function fetchFeaturedRankings(limit = 3): Promise<RankingEntry[]> {
+  const res = await fetch(`/api/rankings/featured?limit=${limit}`);
+  return res.ok ? ((await res.json()) as RankingEntry[]) : [];
+}
+
 export async function submitRanking(meta: RepoMeta, dna: CodeDna): Promise<void> {
   try {
     await apiFetch('/api/rankings', {

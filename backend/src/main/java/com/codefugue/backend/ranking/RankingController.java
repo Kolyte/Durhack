@@ -39,6 +39,19 @@ public class RankingController {
         return repository.top(Math.clamp(limit, 1, 500));
     }
 
+    /**
+     * A few top entries for the landing page. Unlike the leaderboard (which reports 503 so it can show
+     * "offline"), this answers an empty list when the database is down: the landing page just hides the line.
+     */
+    @GetMapping("/featured")
+    public List<RankingEntry> featured(@RequestParam(defaultValue = "3") int limit) {
+        try {
+            return repository.top(Math.clamp(limit, 1, 10));
+        } catch (DataAccessException e) {
+            return List.of();
+        }
+    }
+
     @PostMapping
     public ResponseEntity<Map<String, Object>> submit(@RequestBody RankingSubmission body) {
         RankingSubmission s = body.sanitized();
