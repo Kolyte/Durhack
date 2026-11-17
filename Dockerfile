@@ -20,6 +20,9 @@ RUN ./mvnw -B -q package
 
 # 3) Runtime
 FROM eclipse-temurin:21-jre
+# Fonts for the server-drawn link-preview images (Java2D); headless mode needs no display.
+RUN apt-get update && apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core \
+    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=backend /app/target/*.jar app.jar
 EXPOSE 8080

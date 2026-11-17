@@ -1,3 +1,4 @@
+import { ShareBar } from './ShareBar';
 import { useState } from 'react';
 import { DNA_LABELS, sonyxScore, type CodeDna } from '../model/codeDna';
 import type { RepoMeta } from '../types';
@@ -82,6 +83,7 @@ export function MetricsPanel({ dna, meta, embedded = false }: { dna: CodeDna; me
               {meta.stars.toLocaleString()} stars · {dna.analyzedCodeFiles} source files analysed
             </p>
           )}
+          {meta && <ShareBar repoName={meta.repoName} score={score} />}
           <ul className="caveats">
             {dna.caveats.map((c) => (
               <li key={c}>{c}</li>

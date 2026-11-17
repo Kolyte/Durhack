@@ -217,6 +217,19 @@ Details:
 - It uses public data only: `GET /api/wrapped/{login}` reads the profile and public repositories through the GitHub API (set `GITHUB_TOKEN` for higher rate limits) and caches each result for an hour.
 - Entry points: the landing page link, and **🎧 Your Sonyx Wrapped** in the account menu.
 
+## Sharing: README badges and link previews
+
+Every repo gets a README badge and a share link:
+
+```markdown
+[![Listen on Sonyx](https://<your-domain>/badge/facebook/react.svg)](https://<your-domain>/r/facebook/react)
+```
+
+- `/badge/{owner}/{repo}.svg` shows the repo's Code DNA score and leaderboard rank, or "▶ listen" before its first analysis. It is cached for an hour.
+- `/r/{owner}/{repo}` and `/w/{login}` are share links. Chat apps and social sites read their Open Graph and Twitter tags (title, description, a 1200×630 preview image from `/og/...png`). People who click are sent straight to the music or to Wrapped.
+- In the app, the Code DNA panel has **↗ Share** (it uses the phone's share sheet, or copies the link) and **🏷️ README badge** (copy-paste Markdown).
+- Preview images are drawn on the server with Java2D. The Docker image installs DejaVu fonts for that.
+
 ## Running locally
 
 Quickest — everything in Docker (TimescaleDB + app; no Java or Postgres install needed):

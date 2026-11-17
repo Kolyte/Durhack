@@ -1548,3 +1548,21 @@ input[type='range']::-moz-range-thumb {
   .pick__name { font-size: 12px; max-width: 100%; }
   .pick__note { display: none; }
 }
+
+/* ---------- Share & badge ---------- */
+.sharebar { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.sharebar__badge { flex-basis: 100%; display: grid; gap: 6px; padding: 8px; border: 1px solid var(--border); border-radius: 10px; background: rgba(2, 6, 18, 0.5); }
+.sharebar__badge img { justify-self: start; }
+.sharebar__badge textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: none;
+  font: 11px var(--mono);
+  color: var(--text);
+  background: rgba(2, 6, 18, 0.7);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+}
+.sharebar__badge .btn { justify-self: start; }
+.sharebar__badge .note { margin: 0; }

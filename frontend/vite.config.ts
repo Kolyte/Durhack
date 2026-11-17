@@ -24,6 +24,10 @@ export default defineConfig({
       // callback URL stays http://localhost:5173/login/oauth2/code/github.
       '/oauth2': { target: 'http://localhost:8080', changeOrigin: false },
       '/login/oauth2': { target: 'http://localhost:8080', changeOrigin: false },
+      // Share links, README badges and link-preview images are served by the backend.
+      '^/(r|w)/': { target: 'http://localhost:8080' },
+      '/badge/': { target: 'http://localhost:8080' },
+      '/og/': { target: 'http://localhost:8080' },
     },
   },
 })

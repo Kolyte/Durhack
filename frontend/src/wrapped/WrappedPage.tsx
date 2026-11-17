@@ -365,7 +365,7 @@ function buildSlides(w: Wrapped, onRestart: () => void): Slide[] {
 
 function ShareSlide({ w, onRestart }: { w: Wrapped; onRestart: () => void }) {
   const [status, setStatus] = useState('');
-  const link = `${location.origin}/wrapped.html?u=${encodeURIComponent(w.login)}`;
+  const link = `${location.origin}/w/${encodeURIComponent(w.login)}`; // rich preview card in chats and social posts
   const listen = w.topRepo ? `/?repo=${encodeURIComponent(w.topRepo.fullName)}&preset=${encodeURIComponent(w.preset)}` : '/';
 
   const download = async () => {
