@@ -48,7 +48,7 @@ export async function explainWithGemini(meta: RepoMeta, file: FileInfo): Promise
   if (cached) return cached;
 
   const [owner, repo] = meta.repoName.split('/');
-  const res = await apiFetch('/api/explain', {
+  const res = await apiFetch(meta.privateRepo ? '/api/explain?private=1' : '/api/explain', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

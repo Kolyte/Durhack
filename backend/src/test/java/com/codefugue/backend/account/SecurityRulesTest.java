@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -52,7 +54,14 @@ class SecurityRulesTest {
 
         @Test
         void signInStartsTheGitHubOAuthFlow() throws Exception {
-            mvc.perform(get("/oauth2/authorization/github")).andExpect(status().is3xxRedirection());
+            mvc.perform(get("/oauth2/authorization/github")).andExpect(status().is3xxRedirection())
+                    .andExpect(header().string("Location", not(containsString("repo"))));
+        }
+
+        @Test
+        void connectingPrivateReposAsksGitHubForTheRepoScope() throws Exception {
+            mvc.perform(get("/oauth2/authorization/github").param("private", "1")).andExpect(status().is3xxRedirection())
+                    .andExpect(header().string("Location", containsString("scope=read:user%20user:email%20repo")));
         }
 
         @Test

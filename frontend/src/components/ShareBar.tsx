@@ -3,13 +3,22 @@ import { toast } from '../state/account';
 import { RecordButton } from './RecordButton';
 
 /** Share a repo's Sonyx page (with a rich link preview) or grab a README badge for it. */
-export function ShareBar({ repoName, score }: { repoName: string; score: number }) {
+export function ShareBar({ repoName, score, privateRepo = false }: { repoName: string; score: number; privateRepo?: boolean }) {
   const [badgeOpen, setBadgeOpen] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
   const origin = window.location.origin;
   const link = `${origin}/r/${repoName}`;
   const badge = `[![Listen on Sonyx](${origin}/badge/${repoName}.svg)](${link})`;
   const embed = `<iframe src="${origin}/?repo=${repoName}&embed=1" width="720" height="420" style="border:0;border-radius:12px" allow="autoplay; fullscreen" loading="lazy" title="${repoName} on Sonyx"></iframe>`;
+
+  if (privateRepo) {
+    return (
+      <div className="sharebar">
+        <RecordButton repoName={repoName} />
+        <p className="note">🔒 Private repo: it isn't ranked, and sharing links, badges and embeds are turned off.</p>
+      </div>
+    );
+  }
 
   const share = async () => {
     const text = `${repoName} scores ${score.toFixed(1)} on Sonyx. Hear what its code sounds like 🎧`;

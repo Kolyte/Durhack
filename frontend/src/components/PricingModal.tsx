@@ -3,7 +3,7 @@ import { accountStore, closePricing, manageSubscription, signIn, upgrade } from 
 import { useStore } from '../state/store';
 
 const FREE = ['Any public GitHub repo', 'City, Galaxy and Tree views', 'All 7 music styles', 'Built-in file explanations', 'Leaderboard'];
-const PRO = ['Everything in Free', '✨ Gemini AI explanations for any file', '🎬 Record video clips with music', 'Bigger repos: 120 source files analysed (vs 48)', 'Support Sonyx development'];
+const PRO = ['Everything in Free', '✨ Gemini AI explanations for any file', '🎬 Record video clips with music', '🔒 Your private repositories', 'Bigger repos: 120 source files analysed (vs 48)', 'Support Sonyx development'];
 
 /** Free vs Pro, with the upgrade action. Payments run on Stripe Checkout (Stripe hosts the card form). */
 export function PricingModal() {

@@ -47,6 +47,16 @@ class GeminiExplainServiceTest {
     }
 
     @Test
+    void privateRepoAnswersAreNeverSharedThroughTheCache() {
+        FakeHttp http = new FakeHttp();
+        GeminiExplainService s = new GeminiExplainService("test-key", "gemini-test", "https://g.example/v1beta", 15, http);
+        s.explain(req("lib/secret.js"), "user-token");
+        s.explain(req("lib/secret.js"), "user-token");
+        s.explain(req("lib/secret.js"));
+        assertEquals(3, http.posts.size(), "nothing private was cached, so every call went to Gemini");
+    }
+
+    @Test
     void explainsAFileAndCachesTheAnswer() {
         FakeHttp http = new FakeHttp();
         GeminiExplainService s = new GeminiExplainService("test-key", "gemini-test", "https://g.example/v1beta", 15, http);

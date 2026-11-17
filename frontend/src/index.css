@@ -1615,3 +1615,6 @@ input[type='range']::-moz-range-thumb {
 @media (max-width: 420px) {
   .embedbar__views { display: none; }
 }
+.status__action { margin-left: 8px; vertical-align: middle; }
+.account__who .plan-badge--pro { color: #1a0b1f; }
+.account__menu a.btn { text-decoration: none; }

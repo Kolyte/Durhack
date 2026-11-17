@@ -75,7 +75,7 @@ export default function App() {
     if (phase === 'ready' && meta && composedFor.current !== meta.repoName && model.files.size > 0) {
       composedFor.current = meta.repoName;
       audioEngine.loadComposition(model, dna);
-      void submitRanking(meta, dna);
+      if (!meta.privateRepo) void submitRanking(meta, dna);
     }
   }, [phase, meta, model, dna]);
 

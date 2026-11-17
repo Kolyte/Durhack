@@ -115,6 +115,8 @@ Sonyx works with no accounts at all. Two optional features turn it into a produc
 | Any public repo, all views and music styles, leaderboard | ✓ | ✓ |
 | ✨ Gemini file explanations | | ✓ |
 | Source files analysed per repo | 48 | 120 |
+| 🔒 Your private repositories | | ✓ |
+| 🎬 Video clips with music | | ✓ |
 
 Each feature switches on only when its keys are set:
 
@@ -128,6 +130,15 @@ How it fits together:
 - `POST /api/billing/portal` opens the Stripe Customer Portal, where users can change their card, see invoices or cancel.
 - Stripe tells us about subscription changes through a signed webhook (`POST /api/stripe/webhook`). The plan is never trusted from the browser.
 - All state-changing API calls are CSRF-protected (cookie `XSRF-TOKEN` → header `X-XSRF-TOKEN`). The Stripe webhook is exempt but signature-checked.
+
+### Private repositories (Pro)
+
+Pro users can pick **🔒 Connect private repos** in the account menu:
+- This re-runs GitHub sign-in with the extra `repo` scope, through `/oauth2/authorization/github?private=1`. Normal sign-in only asks for the public profile. GitHub OAuth apps have no read-only scope for private repos, so the consent screen says read and write. Sonyx only reads.
+- The token is kept in the user's HTTP session, and never in the database or logs. Signing out, a restart or **Disconnect** forgets it, and users can also revoke it on GitHub (Settings → Applications).
+- The token is only used for that user's own analyses and Gemini explanations.
+- Private repos are never sent to the leaderboard. Share links, badges, embeds and battles are hidden for them, and their Gemini answers are never cached for other users.
+- No extra setup is needed: the same OAuth app and callback URL work.
 
 ### 1. GitHub OAuth app
 

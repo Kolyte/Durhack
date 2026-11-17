@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { accountStore, manageSubscription, openPricing, signIn, signOut } from '../state/account';
+import { accountStore, connectPrivateRepos, disconnectPrivateRepos, manageSubscription, openPricing, signIn, signOut } from '../state/account';
 import { useStore } from '../state/store';
 import { openShop } from '../state/shop';
 
@@ -60,6 +60,15 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
           {me.billingEnabled && me.hasBillingAccount && (
             <button role="menuitem" className="btn btn--ghost btn--block" disabled={busy} onClick={() => manageSubscription()}>
               Manage subscription
+            </button>
+          )}
+          {me.privateRepos ? (
+            <button role="menuitem" className="btn btn--ghost btn--block" onClick={() => (setOpen(false), void disconnectPrivateRepos())}>
+              🔒 Private repos on · Disconnect
+            </button>
+          ) : (
+            <button role="menuitem" className="btn btn--ghost btn--block" onClick={() => (setOpen(false), me.canUsePro ? connectPrivateRepos() : openPricing())}>
+              🔒 Connect private repos{!me.canUsePro && <span className="plan-badge plan-badge--pro">Pro</span>}
             </button>
           )}
           <button role="menuitem" className="btn btn--ghost btn--block" onClick={() => (setOpen(false), openShop())}>

@@ -12,11 +12,17 @@ public sealed interface ComposeEvent {
      * @param sampledCodeFiles source files actually included in {@code nodes} (largest first)
      * @param treeTruncated    true if GitHub truncated the recursive tree (very large repos)
      */
+    /** @param privateRepo a private repository (analysed with the user's own token; never ranked or shared). */
     record RepoTree(String type, String repoName, String branch, int bpm, int stars, int totalCodeFiles,
-                    int sampledCodeFiles, boolean treeTruncated, List<FileNode> nodes) implements ComposeEvent {
+                    int sampledCodeFiles, boolean treeTruncated, boolean privateRepo, List<FileNode> nodes) implements ComposeEvent {
         public RepoTree(String repoName, String branch, int bpm, int stars, int totalCodeFiles, int sampledCodeFiles,
                         boolean treeTruncated, List<FileNode> nodes) {
-            this("REPO_TREE", repoName, branch, bpm, stars, totalCodeFiles, sampledCodeFiles, treeTruncated, nodes);
+            this("REPO_TREE", repoName, branch, bpm, stars, totalCodeFiles, sampledCodeFiles, treeTruncated, false, nodes);
+        }
+
+        public RepoTree(String repoName, String branch, int bpm, int stars, int totalCodeFiles, int sampledCodeFiles,
+                        boolean treeTruncated, boolean privateRepo, List<FileNode> nodes) {
+            this("REPO_TREE", repoName, branch, bpm, stars, totalCodeFiles, sampledCodeFiles, treeTruncated, privateRepo, nodes);
         }
     }
 

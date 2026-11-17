@@ -84,19 +84,27 @@ public class GitHubAnalyzerService {
         analyzeAndStream(repoUrl, MAX_CODE_FILES, emit);
     }
 
-    /** @param maxCodeFiles how many of the largest source files to analyse (more for Pro). */
     public void analyzeAndStream(String repoUrl, int maxCodeFiles, Consumer<ComposeEvent> emit) {
+        analyzeAndStream(repoUrl, maxCodeFiles, null, emit);
+    }
+
+    /**
+     * @param maxCodeFiles how many of the largest source files to analyse (more for Pro).
+     * @param userToken    the signed-in user's GitHub token (private repos, Pro), or null for public access.
+     */
+    public void analyzeAndStream(String repoUrl, int maxCodeFiles, String userToken, Consumer<ComposeEvent> emit) {
         try {
             String[] parts = parseOwnerRepo(repoUrl);
             String owner = parts[0], repo = parts[1];
 
-            JsonNode meta = fetchJson("https://api.github.com/repos/" + owner + "/" + repo);
+            JsonNode meta = fetchJson("https://api.github.com/repos/" + owner + "/" + repo, userToken);
+            boolean privateRepo = meta.path("private").asBoolean(false);
             String branch = meta.path("default_branch").asString("main");
             int stars = meta.path("stargazers_count").asInt(0);
             int bpm = Math.clamp(76 + (int) (Math.log10(stars + 1) * 4), 76, 96);
 
             JsonNode treeRoot = fetchJson(
-                    "https://api.github.com/repos/" + owner + "/" + repo + "/git/trees/" + branch + "?recursive=1");
+                    "https://api.github.com/repos/" + owner + "/" + repo + "/git/trees/" + branch + "?recursive=1", userToken);
 
             List<JsonNode> code = new ArrayList<>(), config = new ArrayList<>(), docs = new ArrayList<>();
             for (JsonNode item : treeRoot.path("tree")) {
@@ -136,7 +144,7 @@ public class GitHubAnalyzerService {
 
             int sampledCode = Math.min(code.size(), maxCodeFiles);
             emit.accept(new ComposeEvent.RepoTree(owner + "/" + repo, branch, bpm, stars, code.size(), sampledCode,
-                    treeRoot.path("truncated").asBoolean(false), initialNodes));
+                    treeRoot.path("truncated").asBoolean(false), privateRepo, initialNodes));
 
             Semaphore limiter = new Semaphore(MAX_CONCURRENT_FETCHES);
             try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -146,7 +154,7 @@ public class GitHubAnalyzerService {
                         try {
                             String rawUrl = "https://raw.githubusercontent.com/" + owner + "/" + repo + "/"
                                     + branch + "/" + node.path();
-                            String text = fetchText(rawUrl);
+                            String text = fetchText(rawUrl, privateRepo ? userToken : null);
                             emit.accept(new ComposeEvent.NodeMetrics(scanFile(node, text)));
 
                             if (isCode(node)) {
@@ -166,7 +174,15 @@ public class GitHubAnalyzerService {
 
             emit.accept(new ComposeEvent.CompositionReady(initialNodes.size()));
         } catch (Exception e) {
-            emit.accept(new ComposeEvent.ErrorEvent("Failed to analyze repo: " + e.getMessage()));
+            String msg = e.getMessage() == null ? "" : e.getMessage();
+            if (msg.startsWith("GitHub HTTP 404 for https://api.github.com/repos/")) {
+                // GitHub answers 404 for private repos it won't show you, so this is usually "private".
+                emit.accept(new ComposeEvent.ErrorEvent(userToken == null
+                        ? "Repository not found. If it's private, connect your private repos (Sonyx Pro)."
+                        : "Repository not found, or your GitHub account can't see it."));
+            } else {
+                emit.accept(new ComposeEvent.ErrorEvent("Failed to analyze repo: " + msg));
+            }
         }
     }
 
@@ -262,14 +278,17 @@ public class GitHubAnalyzerService {
         return count;
     }
 
-    private JsonNode fetchJson(String url) throws Exception {
-        return mapper.readTree(fetchText(url));
+    private JsonNode fetchJson(String url, String userToken) throws Exception {
+        return mapper.readTree(fetchText(url, userToken));
     }
 
-    private String fetchText(String url) throws Exception {
+    /** The user's token (private repos) wins; otherwise the server's GITHUB_TOKEN for API calls. */
+    private String fetchText(String url, String userToken) throws Exception {
         HttpRequest.Builder req = HttpRequest.newBuilder(URI.create(url))
                 .header("User-Agent", "Sonyx");
-        if (githubToken != null && !githubToken.isBlank() && url.contains("api.github.com")) {
+        if (userToken != null && !userToken.isBlank()) {
+            req.header("Authorization", "Bearer " + userToken);
+        } else if (githubToken != null && !githubToken.isBlank() && url.contains("api.github.com")) {
             req.header("Authorization", "Bearer " + githubToken);
         }
         HttpResponse<String> res = http.send(req.build(), HttpResponse.BodyHandlers.ofString());

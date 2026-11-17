@@ -1,5 +1,15 @@
 package com.codefugue.backend.compose;
 
+import com.codefugue.backend.account.GitHubTokens;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.http.server.ServerHttpRequest;
+import org.springframework.http.server.ServerHttpResponse;
+import org.springframework.http.server.ServletServerHttpRequest;
+import org.springframework.web.socket.WebSocketHandler;
+import org.springframework.web.socket.server.HandshakeInterceptor;
+import java.security.Principal;
+import java.util.Map;
+
 import com.codefugue.backend.ranking.RecentAnalyses;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.socket.TextMessage;
@@ -22,12 +32,15 @@ public class WebSocketConfig implements WebSocketConfigurer {
 
     private final GitHubAnalyzerService analyzer;
     private final RecentAnalyses recentAnalyses;
+    private static final String PRIVATE_TOKEN = "sonyx.githubToken";
     private final AccountService accounts;
+    private final GitHubTokens tokens;
     private final String[] allowedOrigins;
     private final JsonMapper mapper = JsonMapper.builder().build();
 
     public WebSocketConfig(GitHubAnalyzerService analyzer, RecentAnalyses recentAnalyses, AccountService accounts,
-                           @Value("${ALLOWED_ORIGINS:}") String allowedOrigins) {
+                           GitHubTokens tokens, @Value("${ALLOWED_ORIGINS:}") String allowedOrigins) {
+        this.tokens = tokens;
         this.analyzer = analyzer;
         this.recentAnalyses = recentAnalyses;
         this.accounts = accounts;
@@ -45,10 +58,13 @@ public class WebSocketConfig implements WebSocketConfigurer {
                 int maxFiles = accounts.isProSubscriber(session.getPrincipal())
                         ? GitHubAnalyzerService.PRO_MAX_CODE_FILES : GitHubAnalyzerService.MAX_CODE_FILES;
                 AtomicReference<ComposeEvent.RepoTree> tree = new AtomicReference<>();
-                Thread.startVirtualThread(() -> analyzer.analyzeAndStream(repoUrl, maxFiles, event -> {
-                    // Remember finished analyses so the browser may submit their scores to the ranking.
+                // Private repos: the user's own token, captured at the handshake (Pro, opted in).
+                String userToken = (String) session.getAttributes().get(PRIVATE_TOKEN);
+                Thread.startVirtualThread(() -> analyzer.analyzeAndStream(repoUrl, maxFiles, userToken, event -> {
+                    // Remember finished public analyses so the browser may submit their scores to the ranking.
+                    // Private repos are never ranked (their names must not leak).
                     if (event instanceof ComposeEvent.RepoTree t) tree.set(t);
-                    if (event instanceof ComposeEvent.CompositionReady && tree.get() != null) {
+                    if (event instanceof ComposeEvent.CompositionReady && tree.get() != null && !tree.get().privateRepo()) {
                         recentAnalyses.markFinished(tree.get().repoName(), tree.get().stars(), tree.get().totalCodeFiles());
                     }
                     try {
@@ -62,7 +78,24 @@ public class WebSocketConfig implements WebSocketConfigurer {
                     }
                 }));
             }
-        }, "/ws/compose");
+        }, "/ws/compose").addInterceptors(new HandshakeInterceptor() {
+            @Override
+            public boolean beforeHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler h,
+                                           Map<String, Object> attributes) {
+                if (request instanceof ServletServerHttpRequest servlet) {
+                    HttpServletRequest req = servlet.getServletRequest();
+                    Principal user = req.getUserPrincipal();
+                    if (user != null && accounts.canUsePro(user)) {
+                        tokens.privateToken(user, req).ifPresent(t -> attributes.put(PRIVATE_TOKEN, t));
+                    }
+                }
+                return true;
+            }
+
+            @Override
+            public void afterHandshake(ServerHttpRequest request, ServerHttpResponse response, WebSocketHandler h, Exception e) {
+            }
+        });
         // Same-origin only by default: the socket carries the session cookie, so other sites mustn't open it.
         // Set ALLOWED_ORIGINS (comma-separated) if the frontend is served from a different origin.
         if (allowedOrigins.length > 0) registration.setAllowedOrigins(allowedOrigins);

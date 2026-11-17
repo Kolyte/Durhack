@@ -3,6 +3,20 @@ import { COMPACT_QUERY, useMediaQuery } from '../state/useMediaQuery';
 import type { Phase } from '../state/useComposeStream';
 import { AccountMenu } from './AccountMenu';
 import { openShop } from '../state/shop';
+import { accountStore, connectPrivateRepos, openPricing, signIn } from '../state/account';
+import { useStore } from '../state/store';
+
+/** Shown when GitHub says "not found": usually a private repo. */
+function PrivateReposHint() {
+  const { me } = useStore(accountStore);
+  if (!me.signInAvailable || me.privateRepos) return null;
+  const go = () => (!me.signedIn ? signIn('upgrade') : me.canUsePro ? connectPrivateRepos() : openPricing());
+  return (
+    <button className="btn btn--accent btn--sm status__action" onClick={go}>
+      🔒 {me.signedIn && me.canUsePro ? 'Connect private repos' : 'Private repos are in Pro'}
+    </button>
+  );
+}
 
 /** "github.com/a/b", "a/b" or a full URL → a full https URL the backend understands. */
 function normalizeRepoUrl(raw: string): string {
@@ -113,6 +127,7 @@ export function RepoInput({
       </form>
       <div className={`status${phase === 'error' ? ' status--error' : ''}`} role="status">
         {status}
+        {phase === 'error' && /private repos/i.test(status) && <PrivateReposHint />}
         {showProgress && (
           <div className="progress" aria-hidden>
             <div className="progress__bar" style={{ width: `${Math.round((progress ?? 0) * 100)}%` }} />

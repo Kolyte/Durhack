@@ -12,6 +12,12 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.registration.InMemoryClientRegistrationRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.HttpSessionOAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver;
+import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
+import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
@@ -53,8 +59,11 @@ public class SecurityConfig {
                         PathPatternRequestMatcher.withDefaults().matcher("/api/**")))
                 .logout(l -> l.logoutUrl("/api/auth/logout")
                         .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)));
-        if (clients.getIfAvailable() != null) {
-            http.oauth2Login(o -> o.successHandler(onLogin));
+        ClientRegistrationRepository registrations = clients.getIfAvailable();
+        if (registrations != null) {
+            http.oauth2Login(o -> o
+                    .successHandler(onLogin)
+                    .authorizationEndpoint(a -> a.authorizationRequestResolver(new PrivateReposScopeResolver(registrations))));
         }
         return http.build();
     }
@@ -69,6 +78,44 @@ public class SecurityConfig {
                 .clientSecret(clientSecret.trim())
                 .scope("read:user", "user:email")
                 .build());
+    }
+
+    /**
+     * GitHub tokens are kept in the user's HTTP session only (not in memory per user or in the database), so they
+     * disappear when the session ends.
+     */
+    @Bean
+    OAuth2AuthorizedClientRepository authorizedClientRepository() {
+        return new HttpSessionOAuth2AuthorizedClientRepository();
+    }
+
+    /**
+     * Normal sign-in asks GitHub only for the public profile. "Connect private repos" sends people to
+     * /oauth2/authorization/github?private=1, which additionally asks for the "repo" scope.
+     */
+    static final class PrivateReposScopeResolver implements OAuth2AuthorizationRequestResolver {
+        private final DefaultOAuth2AuthorizationRequestResolver delegate;
+
+        PrivateReposScopeResolver(ClientRegistrationRepository registrations) {
+            this.delegate = new DefaultOAuth2AuthorizationRequestResolver(registrations, "/oauth2/authorization");
+        }
+
+        @Override
+        public OAuth2AuthorizationRequest resolve(HttpServletRequest request) {
+            return widen(request, delegate.resolve(request));
+        }
+
+        @Override
+        public OAuth2AuthorizationRequest resolve(HttpServletRequest request, String clientRegistrationId) {
+            return widen(request, delegate.resolve(request, clientRegistrationId));
+        }
+
+        private static OAuth2AuthorizationRequest widen(HttpServletRequest request, OAuth2AuthorizationRequest r) {
+            if (r == null || request.getParameter("private") == null) return r;
+            java.util.Set<String> scopes = new java.util.LinkedHashSet<>(r.getScopes());
+            scopes.add("repo");
+            return OAuth2AuthorizationRequest.from(r).scopes(scopes).build();
+        }
     }
 
     /** No username/password accounts: stops Spring Boot creating a default user with a generated password. */

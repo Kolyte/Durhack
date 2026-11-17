@@ -16,6 +16,8 @@ export interface Me {
   subscriptionStatus?: string | null;
   currentPeriodEnd?: string | null;
   hasBillingAccount?: boolean;
+  /** Private repositories connected (GitHub "repo" scope, kept in the session only). */
+  privateRepos?: boolean;
 }
 
 const SIGNED_OUT: Me = { signInAvailable: false, billingEnabled: false, priceLabel: '', canUsePro: true, signedIn: false };
@@ -43,7 +45,7 @@ export async function loadMe(): Promise<Me> {
 const AFTER_LOGIN = 'sonyx.afterLogin';
 
 /** What to reopen after coming back from GitHub sign-in. */
-export type AfterLogin = 'upgrade' | 'shop' | 'wrapped';
+export type AfterLogin = 'upgrade' | 'shop' | 'wrapped' | 'private';
 
 /** Full-page redirect to GitHub. `then` reopens the pricing dialog / shop / Wrapped when we come back. */
 export function signIn(then?: AfterLogin) {
@@ -53,6 +55,22 @@ export function signIn(then?: AfterLogin) {
     /* private mode: just skip the follow-up */
   }
   window.location.href = '/oauth2/authorization/github';
+}
+
+/** Asks GitHub for access to private repositories (Pro). Pro is checked by the caller. */
+export function connectPrivateRepos() {
+  try {
+    localStorage.setItem(AFTER_LOGIN, 'private');
+  } catch {
+    /* ignore */
+  }
+  window.location.href = '/oauth2/authorization/github?private=1';
+}
+
+export async function disconnectPrivateRepos() {
+  await apiFetch('/api/github/private/disconnect', { method: 'POST' }).catch(() => undefined);
+  await loadMe();
+  toast('Private repos disconnected. You can also revoke access on GitHub: Settings → Applications.');
 }
 
 export async function signOut() {
@@ -136,5 +154,6 @@ export async function initAccount(): Promise<string | null> {
     /* ignore */
   }
   if (next === 'upgrade' && me.signedIn && !me.pro && me.billingEnabled) openPricing();
+  if (next === 'private' && me.privateRepos) toast('Private repos connected 🔒 Paste any of your private repos to hear it.');
   return me.signedIn ? next : null;
 }

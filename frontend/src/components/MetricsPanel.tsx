@@ -83,7 +83,7 @@ export function MetricsPanel({ dna, meta, embedded = false }: { dna: CodeDna; me
               {meta.stars.toLocaleString()} stars · {dna.analyzedCodeFiles} source files analysed
             </p>
           )}
-          {meta && <ShareBar repoName={meta.repoName} score={score} />}
+          {meta && <ShareBar repoName={meta.repoName} score={score} privateRepo={meta.privateRepo} />}
           <ul className="caveats">
             {dna.caveats.map((c) => (
               <li key={c}>{c}</li>

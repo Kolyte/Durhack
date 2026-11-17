@@ -36,6 +36,10 @@ public class GeminiExplainService {
     interface Http {
         Result get(String url) throws Exception;
 
+        default Result get(String url, Map<String, String> headers) throws Exception {
+            return get(url);
+        }
+
         Result postJson(String url, Map<String, String> headers, String body) throws Exception;
 
         record Result(int status, String body) {}
@@ -88,18 +92,29 @@ public class GeminiExplainService {
     }
 
     public ExplainResponse explain(ExplainRequest req) {
+        return explain(req, null);
+    }
+
+    /**
+     * @param githubToken the user's token when the file may be in a private repo. Such answers are never cached,
+     *                    because the cache is shared between users.
+     */
+    public ExplainResponse explain(ExplainRequest req, String githubToken) {
         GeminiPrompt.validate(req);
+        boolean shareable = githubToken == null;
         if (!enabled()) {
             throw new ExplainException(503, "not_configured", "Gemini is not configured on this server (GEMINI_API_KEY is not set)");
         }
         String key = req.owner() + "/" + req.repo() + "@" + req.branch() + ":" + req.path() + "#" + model;
-        synchronized (cache) {
-            ExplainResponse hit = cache.get(key);
-            if (hit != null) return new ExplainResponse(hit.purpose(), hit.details(), hit.model(), true);
+        if (shareable) {
+            synchronized (cache) {
+                ExplainResponse hit = cache.get(key);
+                if (hit != null) return new ExplainResponse(hit.purpose(), hit.details(), hit.model(), true);
+            }
         }
         takeRateSlot();
 
-        String code = fetchCode(req);
+        String code = fetchCode(req, githubToken);
         String body = GeminiPrompt.requestBody(mapper, GeminiPrompt.userPrompt(req, code)).toString();
         Http.Result res;
         try {
@@ -119,19 +134,21 @@ public class GeminiExplainService {
             throw new ExplainException(502, "gemini_error", "Gemini error " + res.status() + ": " + errorMessage(res.body()));
         }
         ExplainResponse out = GeminiPrompt.parse(mapper, res.body(), model);
-        synchronized (cache) {
-            cache.put(key, out);
+        if (shareable) {
+            synchronized (cache) {
+                cache.put(key, out);
+            }
         }
         return out;
     }
 
-    private String fetchCode(ExplainRequest r) {
+    private String fetchCode(ExplainRequest r, String githubToken) {
         String path = Arrays.stream(r.path().split("/"))
                 .map(seg -> URLEncoder.encode(seg, StandardCharsets.UTF_8).replace("+", "%20"))
                 .collect(Collectors.joining("/"));
         String url = "https://raw.githubusercontent.com/" + r.owner() + "/" + r.repo() + "/" + r.branch() + "/" + path;
         try {
-            Http.Result res = http.get(url);
+            Http.Result res = githubToken == null ? http.get(url) : http.get(url, Map.of("Authorization", "Bearer " + githubToken));
             if (res.status() == 404) throw new ExplainException(404, "file_not_found", "File not found on GitHub: " + r.path());
             if (res.status() >= 400) throw new ExplainException(502, "github_error", "GitHub returned " + res.status());
             return res.body();
@@ -173,9 +190,15 @@ public class GeminiExplainService {
 
         @Override
         public Result get(String url) throws Exception {
-            HttpRequest req = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(15))
-                    .header("User-Agent", "CodeFugue-DurHack").build();
-            HttpResponse<String> res = client.send(req, HttpResponse.BodyHandlers.ofString());
+            return get(url, Map.of());
+        }
+
+        @Override
+        public Result get(String url, Map<String, String> headers) throws Exception {
+            HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofSeconds(15))
+                    .header("User-Agent", "Sonyx");
+            headers.forEach(b::header);
+            HttpResponse<String> res = client.send(b.build(), HttpResponse.BodyHandlers.ofString());
             return new Result(res.statusCode(), res.body());
         }
 
