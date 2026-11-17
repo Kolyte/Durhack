@@ -239,6 +239,19 @@ Every repo gets a README badge and a share link:
 - The 30-day most-voted battles are listed as "Popular battles".
 - Entry points: the landing page, and **⚔️ Battle** next to Share in the Code DNA panel (it pre-fills the current repo).
 
+## Embeddable player
+
+Any repo can be embedded in docs, blogs or portfolios. Use **</> Embed** next to Share to copy the code:
+
+```html
+<iframe src="https://<your-domain>/?repo=facebook/react&embed=1" width="720" height="420"
+        style="border:0;border-radius:12px" allow="autoplay; fullscreen" loading="lazy"></iframe>
+```
+
+- With `?embed=1` the app shows only the 3D scene and a compact player bar: play/pause, City/Galaxy/Tree, and **Open ↗**.
+- No account, shop or payment controls appear in embeds.
+- Only embed URLs may be framed by other sites. Every other page sends `X-Frame-Options: DENY`, which protects against clickjacking.
+
 ## Running locally
 
 Quickest — everything in Docker (TimescaleDB + app; no Java or Postgres install needed):

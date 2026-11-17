@@ -21,6 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -76,6 +77,12 @@ class SecurityRulesTest {
         @Test
         void stripeWebhookIsNotBlockedByCsrf() throws Exception {
             mvc.perform(post("/api/stripe/webhook").content("{}")).andExpect(status().isServiceUnavailable());
+        }
+
+        @Test
+        void onlyTheEmbedPlayerMayBeFramed() throws Exception {
+            mvc.perform(get("/api/me")).andExpect(header().string("X-Frame-Options", "DENY"));
+            mvc.perform(get("/api/me").param("embed", "1")).andExpect(header().doesNotExist("X-Frame-Options"));
         }
 
         @Test

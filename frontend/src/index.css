@@ -1588,3 +1588,30 @@ input[type='range']::-moz-range-thumb {
 .hero__wrapped--battle { border-color: rgba(45, 212, 191, 0.4); background: rgba(45, 212, 191, 0.08); }
 .hero__wrapped--battle:hover { background: rgba(45, 212, 191, 0.16); }
 .sharebar .btn { text-decoration: none; }
+
+/* ---------- Embedded player (?embed=1) ---------- */
+.app--embed .sound-hint { top: 12px; }
+.embed__loading { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; gap: 8px; color: var(--muted); text-align: center; padding: 16px; }
+.embed__loading .brand__mark { font-size: 32px; color: var(--teal); animation: rec-blink 1.4s ease-in-out infinite; }
+.embedbar {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+}
+.embedbar .btn--round { width: 36px; height: 36px; flex: none; }
+.embedbar__title { display: grid; min-width: 0; flex: 1; }
+.embedbar__title span { font-weight: 650; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.embedbar__brand { color: var(--teal); font-size: 10px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; text-decoration: none; }
+.embedbar__views { display: flex; gap: 4px; }
+.embedbar__views .chip { padding: 4px 7px; }
+.embedbar__views .chip.is-on { border-color: var(--border-strong); background: rgba(45, 212, 191, 0.12); }
+.embedbar .btn { text-decoration: none; }
+@media (max-width: 420px) {
+  .embedbar__views { display: none; }
+}

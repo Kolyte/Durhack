@@ -7,6 +7,7 @@ import { HoverTooltip } from './components/HoverTooltip';
 import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
+import { EmbedBar, IS_EMBED } from './components/EmbedBar';
 import { HeroPicks } from './components/HeroPicks';
 import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
@@ -192,6 +193,43 @@ export default function App() {
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const analysed = nodes.filter((n) => n.analyzed).length;
   const hasRepo = model.files.size > 0;
+
+  if (IS_EMBED) {
+    return (
+      <div className="app app--embed">
+        {hasRepo ? (
+          <CodeSculpture
+            model={model}
+            layout={layout}
+            mode={mode}
+            overlay={overlay}
+            selectedId={selectedId}
+            activeGroup={activeGroup}
+            tour={tour}
+            onSelect={onSelect}
+            onHover={onHover}
+            onTourInterrupt={onTourInterrupt}
+            cityPlan={cityLayout.city}
+          />
+        ) : (
+          <div className="embed__loading">
+            <span className="brand__mark" aria-hidden>
+              ◈
+            </span>
+            <p>{status}</p>
+          </div>
+        )}
+        {hasRepo && <HubLabelLayer groups={model.groups} activeKey={activeGroup ?? selected?.group ?? null} />}
+        {hasRepo && <HoverTooltip model={model} />}
+        {needsSound && (
+          <div className="sound-hint panel" role="status">
+            🔊 Tap to play
+          </div>
+        )}
+        <EmbedBar repoName={meta?.repoName} status={status} mode={mode} onMode={setMode} />
+      </div>
+    );
+  }
 
   return (
     <div className="app">

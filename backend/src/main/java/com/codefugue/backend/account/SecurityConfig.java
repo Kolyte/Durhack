@@ -15,7 +15,10 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.logout.HttpStatusReturningLogoutSuccessHandler;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
+import org.springframework.security.web.header.writers.frameoptions.XFrameOptionsHeaderWriter;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 
 /**
  * Accounts are optional: everything public stays open (composing public repos, the leaderboard). Only billing
@@ -37,6 +40,13 @@ public class SecurityConfig {
                         .authenticated()
                         .anyRequest().permitAll())
                 .csrf(csrf -> csrf.spa().ignoringRequestMatchers("/api/stripe/webhook"))
+                // Pages may not be framed (clickjacking), except the embeddable player (?embed=1), which
+                // shows no account, shop or payment controls.
+                .headers(h -> h
+                        .frameOptions(f -> f.disable())
+                        .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                                new NegatedRequestMatcher(req -> req.getParameter("embed") != null),
+                                new XFrameOptionsHeaderWriter(XFrameOptionsHeaderWriter.XFrameOptionsMode.DENY))))
                 // APIs answer 401 instead of redirecting to a login page.
                 .exceptionHandling(e -> e.defaultAuthenticationEntryPointFor(
                         new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
