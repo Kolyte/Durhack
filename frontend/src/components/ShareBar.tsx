@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from '../state/account';
+import { RecordButton } from './RecordButton';
 
 /** Share a repo's Sonyx page (with a rich link preview) or grab a README badge for it. */
 export function ShareBar({ repoName, score }: { repoName: string; score: number }) {
@@ -35,6 +36,7 @@ export function ShareBar({ repoName, score }: { repoName: string; score: number 
       <button className="btn btn--primary btn--sm" onClick={() => void share()}>
         ↗ Share
       </button>
+      <RecordButton repoName={repoName} />
       <button className="btn btn--ghost btn--sm" onClick={() => setBadgeOpen(!badgeOpen)} aria-expanded={badgeOpen}>
         🏷️ README badge
       </button>

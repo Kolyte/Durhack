@@ -1566,3 +1566,21 @@ input[type='range']::-moz-range-thumb {
 }
 .sharebar__badge .btn { justify-self: start; }
 .sharebar__badge .note { margin: 0; }
+
+/* ---------- Clip recording ---------- */
+.rec {
+  position: fixed;
+  top: 92px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px 6px 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.rec__dot { width: 10px; height: 10px; border-radius: 50%; background: #ef4444; animation: rec-blink 1s steps(2) infinite; }
+@keyframes rec-blink { 50% { opacity: 0.2; } }
+.btn--sm .plan-badge { margin: 0 0 0 6px; }

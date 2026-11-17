@@ -12,6 +12,7 @@ import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
 import { Toast } from './components/Toast';
 import { ShopPanel } from './components/ShopPanel';
+import { RecordingIndicator } from './components/RecordButton';
 import { initShop, shopStore } from './state/shop';
 import { initAccount } from './state/account';
 import { TourGuide } from './components/TourGuide';
@@ -244,6 +245,7 @@ export default function App() {
       />
       <PricingModal />
       <ShopPanel />
+      <RecordingIndicator />
       <Toast />
 
       {/* One FileInspector for both layouts (on phones the CSS turns it into a bottom sheet). */}
