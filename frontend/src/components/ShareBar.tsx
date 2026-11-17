@@ -6,10 +6,10 @@ import { RecordButton } from './RecordButton';
 export function ShareBar({ repoName, score }: { repoName: string; score: number }) {
   const [badgeOpen, setBadgeOpen] = useState(false);
   const [embedOpen, setEmbedOpen] = useState(false);
-  const embed = `<iframe src="${origin}/?repo=${repoName}&embed=1" width="720" height="420" style="border:0;border-radius:12px" allow="autoplay; fullscreen" loading="lazy" title="${repoName} on Sonyx"></iframe>`;
   const origin = window.location.origin;
   const link = `${origin}/r/${repoName}`;
   const badge = `[![Listen on Sonyx](${origin}/badge/${repoName}.svg)](${link})`;
+  const embed = `<iframe src="${origin}/?repo=${repoName}&embed=1" width="720" height="420" style="border:0;border-radius:12px" allow="autoplay; fullscreen" loading="lazy" title="${repoName} on Sonyx"></iframe>`;
 
   const share = async () => {
     const text = `${repoName} scores ${score.toFixed(1)} on Sonyx. Hear what its code sounds like 🎧`;
