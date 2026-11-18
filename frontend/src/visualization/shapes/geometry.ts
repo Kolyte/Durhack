@@ -413,7 +413,7 @@ function orbiter(distance: number, tilt: number, size: number): Part {
 /** A flat planetary ring: a torus squashed into a disc, visible from above and below. */
 function planetRing(radius: number, width: number, tilt: number, spin = false): Part {
   return {
-    geometry: new THREE.TorusGeometry(radius, width, 6, 64),
+    geometry: new THREE.TorusGeometry(radius, width, 4, 48),
     mat: 'accent',
     rotation: [Math.PI / 2 + tilt, 0, 0],
     scale: [1, 1, 0.07],
@@ -421,7 +421,7 @@ function planetRing(radius: number, width: number, tilt: number, spin = false): 
   };
 }
 
-const atmosphere = (r: number): Part => ({ geometry: new THREE.SphereGeometry(r, 24, 16), mat: 'glow' });
+const atmosphere = (r: number): Part => ({ geometry: new THREE.SphereGeometry(r, 16, 12), mat: 'glow' });
 
 function galaxyShape(kind: FileInfo['kind'], s: number, cx: number, concurrent: boolean): ShapeRecipe {
   switch (kind) {
@@ -430,7 +430,7 @@ function galaxyShape(kind: FileInfo['kind'], s: number, cx: number, concurrent: 
       return {
         anchorY: 0,
         parts: [
-          { geometry: new THREE.SphereGeometry(s * 1.15, 32, 20), mat: 'body', rotation: [0.35, 0, 0.2] },
+          { geometry: new THREE.SphereGeometry(s * 1.15, 24, 16), mat: 'body', rotation: [0.35, 0, 0.2] },
           atmosphere(s * 1.38),
           planetRing(s * 2.0, s * 0.42, 0.35),
           planetRing(s * 2.75, s * 0.18, 0.35),
@@ -463,11 +463,11 @@ function galaxyShape(kind: FileInfo['kind'], s: number, cx: number, concurrent: 
     }
     case 'docs':
       // A small cratered moon.
-      return { anchorY: 0, parts: [{ geometry: new THREE.SphereGeometry(s * 0.62, 20, 14), mat: 'body' }] };
+      return { anchorY: 0, parts: [{ geometry: new THREE.SphereGeometry(s * 0.62, 16, 12), mat: 'body' }] };
     default: {
       // Planets: rocky (simple code), ocean worlds (moderate) or banded gas worlds (complex), with an
       // atmosphere; async code gets a ring, very complex code a moon.
-      const parts: Part[] = [{ geometry: new THREE.SphereGeometry(s, 28, 18), mat: 'body', rotation: [0.3, 0, 0.15] }, atmosphere(s * 1.22)];
+      const parts: Part[] = [{ geometry: new THREE.SphereGeometry(s, 20, 14), mat: 'body', rotation: [0.3, 0, 0.15] }, atmosphere(s * 1.22)];
       if (concurrent) parts.push(planetRing(s * 1.8, s * 0.3, -0.3));
       if (cx > 0.6) parts.push(orbiter(s * 2.6, 0.3, s * 0.18));
       return { anchorY: 0, parts };
@@ -539,4 +539,54 @@ function treeShape(kind: FileInfo['kind'], s: number): ShapeRecipe {
     default:
       return { anchorY: 0, parts: [{ geometry: leafCluster(s), mat: 'body' }] };
   }
+}
+
+const tmpMatrix = new THREE.Matrix4();
+const tmpQuat = new THREE.Quaternion();
+const tmpEuler = new THREE.Euler();
+const tmpPos = new THREE.Vector3();
+const tmpScale = new THREE.Vector3();
+
+/**
+ * Merges a recipe's static parts into one geometry per material (spinning parts and halos stay separate).
+ * A building made of tiers, crowns and an antenna becomes one or two meshes instead of five or six: this
+ * roughly halves Code City's draw calls, which was the main cost when orbiting large repositories.
+ */
+export function mergeStatic(recipe: ShapeRecipe): ShapeRecipe {
+  const byMat = new Map<Part['mat'], THREE.BufferGeometry[]>();
+  const kept: Part[] = [];
+  for (const p of recipe.parts) {
+    if (p.spin || p.mat === 'glow') {
+      kept.push(p);
+      continue;
+    }
+    const g = p.geometry.clone();
+    tmpEuler.set(...(p.rotation ?? [0, 0, 0]));
+    tmpQuat.setFromEuler(tmpEuler);
+    tmpMatrix.compose(tmpPos.set(...(p.position ?? [0, 0, 0])), tmpQuat, tmpScale.set(...(p.scale ?? [1, 1, 1])));
+    g.applyMatrix4(tmpMatrix);
+    const list = byMat.get(p.mat) ?? [];
+    list.push(g);
+    byMat.set(p.mat, list);
+  }
+  const merged: Part[] = [];
+  for (const [mat, list] of byMat) {
+    // Polyhedra (crystals) are non-indexed; mergeGeometries needs all-indexed or all-non-indexed.
+    const mixed = list.some((g) => g.index) && list.some((g) => !g.index);
+    const ready = mixed ? list.map((g) => (g.index ? g.toNonIndexed() : g)) : list;
+    const one = ready.length === 1 ? ready[0] : mergeGeometries(ready);
+    if (!one) {
+      // Attributes didn't line up: keep the (already transformed) pieces as they are.
+      ready.forEach((g) => merged.push({ geometry: g, mat }));
+      continue;
+    }
+    merged.push({ geometry: one, mat });
+    if (one !== ready[0]) ready.forEach((g) => g.dispose());
+    if (mixed) list.forEach((g) => g.dispose());
+  }
+  // The originals were cloned above; free them.
+  recipe.parts.forEach((p) => {
+    if (!p.spin && p.mat !== 'glow') p.geometry.dispose();
+  });
+  return { anchorY: recipe.anchorY, parts: [...merged, ...kept] };
 }

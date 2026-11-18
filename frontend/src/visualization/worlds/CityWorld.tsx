@@ -153,7 +153,7 @@ const gridFragment = /* glsl */ `
     float line = 1.0 - min(min(g.x, g.y), 1.0);
     float r = length(p);
     float fade = smoothstep(uInner, uInner + 4.0, r) * (1.0 - smoothstep(uOuter * 0.5, uOuter, r));
-    float a = line * fade * (0.65 + uBeat * 0.35);
+    float a = line * fade * (0.75 + uBeat * 0.1);
     gl_FragColor = vec4(uColor * a * 1.6, a);
   }
 `;

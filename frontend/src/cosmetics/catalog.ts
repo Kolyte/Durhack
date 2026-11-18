@@ -1,3 +1,5 @@
+import { Binary, Building2, Candy, Castle, CloudRain, Cpu, Flame, Flower2, Gem, Landmark, Lightbulb, Moon, Orbit, Package, Rocket, Snowflake, Sparkles, Sun, Sunset, type LucideIcon } from 'lucide-react';
+
 /**
  * How each shop item looks. Ids match the server catalogue (backend …/shop/ShopCatalog.java), which owns
  * names and prices; this file owns the visuals.
@@ -58,27 +60,27 @@ export interface WorldDef {
 
 export interface Visual {
   /** Shown on the shop card. */
-  icon: string;
+  icon: LucideIcon;
   swatch: string;
 }
 
 const NEON_RAMP = null;
 
 export const SKINS: Record<string, SkinDef & Visual> = {
-  'skin.neon': { windows: 'grid', ramp: NEON_RAMP, wall: null, roughness: 0.55, metalness: 0.5, glow: 1, scroll: 0, icon: '🏙️', swatch: 'linear-gradient(135deg,#2dd4bf,#38bdf8,#a78bfa,#f472b6)' },
-  'skin.cyberpunk': { windows: 'scan', ramp: ['#22d3ee', '#818cf8', '#e879f9', '#ff2bd6'], wall: '#120a24', roughness: 0.25, metalness: 0.8, glow: 1.45, scroll: 0, icon: '🌆', swatch: 'linear-gradient(135deg,#0f0524,#ff2bd6 55%,#22d3ee)' },
-  'skin.gold': { windows: 'gold', ramp: ['#fde68a', '#fbbf24', '#f59e0b', '#fb923c'], wall: '#8a6a1f', roughness: 0.22, metalness: 0.95, glow: 1.1, scroll: 0, icon: '🏆', swatch: 'linear-gradient(135deg,#78350f,#fbbf24 50%,#fef3c7)' },
-  'skin.glacier': { windows: 'frost', ramp: ['#e0f2fe', '#bae6fd', '#7dd3fc', '#a5b4fc'], wall: '#b9d7ee', roughness: 0.15, metalness: 0.1, glow: 0.9, scroll: 0, icon: '🧊', swatch: 'linear-gradient(135deg,#e0f2fe,#7dd3fc 55%,#6366f1)' },
-  'skin.volcanic': { windows: 'cracks', ramp: ['#f97316', '#ef4444', '#f59e0b', '#fde047'], wall: '#120c0c', roughness: 0.95, metalness: 0.05, glow: 1.6, scroll: 0, icon: '🌋', swatch: 'linear-gradient(135deg,#0c0a09,#7f1d1d 45%,#f97316 75%,#fde047)' },
-  'skin.matrix': { windows: 'code', ramp: ['#14532d', '#16a34a', '#22c55e', '#86efac'], wall: '#020a04', roughness: 0.4, metalness: 0.6, glow: 1.5, scroll: 0.35, icon: '💾', swatch: 'linear-gradient(180deg,#020a04,#16a34a 60%,#86efac)' },
-  'skin.candy': { windows: 'sprinkle', ramp: ['#f9a8d4', '#c4b5fd', '#93c5fd', '#fde68a'], wall: '#fbcfe8', roughness: 0.45, metalness: 0, glow: 0.85, scroll: 0, icon: '🍬', swatch: 'linear-gradient(135deg,#fbcfe8,#c4b5fd 50%,#93c5fd)' },
+  'skin.neon': { windows: 'grid', ramp: NEON_RAMP, wall: null, roughness: 0.55, metalness: 0.5, glow: 1, scroll: 0, icon: Lightbulb, swatch: 'linear-gradient(135deg,#2dd4bf,#38bdf8,#a78bfa,#f472b6)' },
+  'skin.cyberpunk': { windows: 'scan', ramp: ['#22d3ee', '#818cf8', '#e879f9', '#ff2bd6'], wall: '#120a24', roughness: 0.25, metalness: 0.8, glow: 1.45, scroll: 0, icon: Cpu, swatch: 'linear-gradient(135deg,#0f0524,#ff2bd6 55%,#22d3ee)' },
+  'skin.gold': { windows: 'gold', ramp: ['#fde68a', '#fbbf24', '#f59e0b', '#fb923c'], wall: '#8a6a1f', roughness: 0.22, metalness: 0.95, glow: 1.1, scroll: 0, icon: Gem, swatch: 'linear-gradient(135deg,#78350f,#fbbf24 50%,#fef3c7)' },
+  'skin.glacier': { windows: 'frost', ramp: ['#e0f2fe', '#bae6fd', '#7dd3fc', '#a5b4fc'], wall: '#b9d7ee', roughness: 0.15, metalness: 0.1, glow: 0.9, scroll: 0, icon: Snowflake, swatch: 'linear-gradient(135deg,#e0f2fe,#7dd3fc 55%,#6366f1)' },
+  'skin.volcanic': { windows: 'cracks', ramp: ['#f97316', '#ef4444', '#f59e0b', '#fde047'], wall: '#120c0c', roughness: 0.95, metalness: 0.05, glow: 1.6, scroll: 0, icon: Flame, swatch: 'linear-gradient(135deg,#0c0a09,#7f1d1d 45%,#f97316 75%,#fde047)' },
+  'skin.matrix': { windows: 'code', ramp: ['#14532d', '#16a34a', '#22c55e', '#86efac'], wall: '#020a04', roughness: 0.4, metalness: 0.6, glow: 1.5, scroll: 0.35, icon: Binary, swatch: 'linear-gradient(180deg,#020a04,#16a34a 60%,#86efac)' },
+  'skin.candy': { windows: 'sprinkle', ramp: ['#f9a8d4', '#c4b5fd', '#93c5fd', '#fde68a'], wall: '#fbcfe8', roughness: 0.45, metalness: 0, glow: 0.85, scroll: 0, icon: Candy, swatch: 'linear-gradient(135deg,#fbcfe8,#c4b5fd 50%,#93c5fd)' },
 };
 
 export const STYLES: Record<string, Visual> = {
-  'style.classic': { icon: '🏢', swatch: 'linear-gradient(160deg,#0b1226,#1e293b 60%,#38bdf8)' },
-  'style.future': { icon: '🛸', swatch: 'linear-gradient(160deg,#0b1226,#0e7490 55%,#a5f3fc)' },
-  'style.kingdom': { icon: '🏰', swatch: 'linear-gradient(160deg,#1c1917,#57534e 55%,#fcd34d)' },
-  'style.pagoda': { icon: '🏯', swatch: 'linear-gradient(160deg,#1f0a0a,#b91c1c 55%,#fca5a5)' },
+  'style.classic': { icon: Building2, swatch: 'linear-gradient(160deg,#0b1226,#1e293b 60%,#38bdf8)' },
+  'style.future': { icon: Rocket, swatch: 'linear-gradient(160deg,#0b1226,#0e7490 55%,#a5f3fc)' },
+  'style.kingdom': { icon: Castle, swatch: 'linear-gradient(160deg,#1c1917,#57534e 55%,#fcd34d)' },
+  'style.pagoda': { icon: Landmark, swatch: 'linear-gradient(160deg,#1f0a0a,#b91c1c 55%,#fca5a5)' },
 };
 
 const NIGHT: WorldDef = {
@@ -102,7 +104,7 @@ const NIGHT: WorldDef = {
 };
 
 export const WORLDS: Record<string, WorldDef & Visual> = {
-  'world.night': { ...NIGHT, icon: '🌃', swatch: 'radial-gradient(circle at 70% 30%,#334155 0 2px,transparent 3px),linear-gradient(180deg,#060914,#0b1226)' },
+  'world.night': { ...NIGHT, icon: Moon, swatch: 'radial-gradient(circle at 70% 30%,#334155 0 2px,transparent 3px),linear-gradient(180deg,#060914,#0b1226)' },
   'world.synthwave': {
     ...NIGHT,
     sky: { top: '#12002e', horizon: '#ff2e88', bottom: '#2a0845' },
@@ -119,7 +121,7 @@ export const WORLDS: Record<string, WorldDef & Visual> = {
     canopy: ['#e879f9', '#f472b6', '#22d3ee', '#a78bfa'],
     lamp: '#22d3ee',
     rail: '#ff2bd6',
-    icon: '🌅',
+    icon: Sunset,
     swatch: 'linear-gradient(180deg,#12002e 0%,#7e1d8f 45%,#ff2e88 60%,#ffb000 62%,#2a0845 63%)',
   },
   'world.aurora': {
@@ -137,7 +139,7 @@ export const WORLDS: Record<string, WorldDef & Visual> = {
     canopy: ['#065f46', '#047857', '#e2e8f0', '#0f766e'],
     lamp: '#fef3c7',
     rail: '#5eead4',
-    icon: '🌌',
+    icon: Sparkles,
     swatch: 'linear-gradient(180deg,#020617,#064e3b 40%,#34d399 55%,#020617 75%,#e2e8f0)',
   },
   'world.neonrain': {
@@ -155,7 +157,7 @@ export const WORLDS: Record<string, WorldDef & Visual> = {
     canopy: ['#a21caf', '#7c3aed', '#db2777'],
     lamp: '#f472b6',
     rail: '#22d3ee',
-    icon: '🌧️',
+    icon: CloudRain,
     swatch: 'repeating-linear-gradient(100deg,transparent 0 6px,#c4b5fd33 6px 7px),linear-gradient(180deg,#0a0412,#5b1145 70%,#14061f)',
   },
   'world.desert': {
@@ -174,7 +176,7 @@ export const WORLDS: Record<string, WorldDef & Visual> = {
     canopy: ['#65a30d', '#4d7c0f', '#84cc16'],
     lamp: '#fde68a',
     rail: '#f59e0b',
-    icon: '🏜️',
+    icon: Sun,
     swatch: 'linear-gradient(180deg,#1e1b4b,#9a3412 50%,#f59e0b 60%,#c2410c 61%,#7c2d12)',
   },
   'world.sakura': {
@@ -193,7 +195,7 @@ export const WORLDS: Record<string, WorldDef & Visual> = {
     canopy: ['#f9a8d4', '#fbcfe8', '#f472b6', '#fda4af'],
     lamp: '#fff1f2',
     rail: '#f9a8d4',
-    icon: '🌸',
+    icon: Flower2,
     swatch: 'radial-gradient(circle at 30% 60%,#f9a8d4 0 8px,transparent 9px),linear-gradient(180deg,#3b2a5c,#fbcfe8 70%,#f5d0e6)',
   },
   'world.lunar': {
@@ -211,12 +213,12 @@ export const WORLDS: Record<string, WorldDef & Visual> = {
     canopy: ['#94a3b8', '#cbd5e1', '#38bdf8'],
     lamp: '#e0f2fe',
     rail: '#38bdf8',
-    icon: '🌍',
+    icon: Orbit,
     swatch: 'radial-gradient(circle at 70% 35%,#3b82f6 0 12px,#1e3a8a 13px,transparent 14px),linear-gradient(180deg,#000,#111827 70%,#6b7280)',
   },
 };
 
-export const BUNDLE_VISUAL: Visual = { icon: '🎁', swatch: 'linear-gradient(135deg,#a78bfa,#f472b6,#fbbf24)' };
+export const BUNDLE_VISUAL: Visual = { icon: Package, swatch: 'linear-gradient(135deg,#a78bfa,#f472b6,#fbbf24)' };
 
 export function visualFor(id: string): Visual {
   return SKINS[id] ?? STYLES[id] ?? WORLDS[id] ?? BUNDLE_VISUAL;

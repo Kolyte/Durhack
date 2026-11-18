@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Pause, Play, Route, Volume2, X } from 'lucide-react';
+import { LogoMark } from './components/Logo';
 import { submitRanking } from './api/rankings';
 import { audioEngine, engineStore } from './audio/AudioEngine';
 import { PRESETS, type PresetId } from './audio/presets';
@@ -8,7 +10,13 @@ import { hoverStore } from './state/hover';
 import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
 import { EmbedBar, IS_EMBED } from './components/EmbedBar';
-import { HeroPicks } from './components/HeroPicks';
+import { Landing } from './components/HeroPicks';
+import { FileFinder } from './components/FileFinder';
+import { FirstVisitHint } from './components/FirstVisitHint';
+import { ShortcutsHelp } from './components/ShortcutsHelp';
+import { rememberRepo } from './state/recent';
+import { sonyxScore } from './model/codeDna';
+import { SiteHeader } from './components/SiteHeader';
 import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
 import { Toast } from './components/Toast';
@@ -16,7 +24,7 @@ import { ShopPanel } from './components/ShopPanel';
 import { HistoryPanel } from './components/HistoryPanel';
 import { closeHistory, openHistory } from './state/history';
 import { RecordingIndicator } from './components/RecordButton';
-import { initShop, shopStore } from './state/shop';
+import { initShop, openShop, shopStore } from './state/shop';
 import { initAccount } from './state/account';
 import { TourGuide } from './components/TourGuide';
 import { ViewControls } from './components/ViewControls';
@@ -77,7 +85,10 @@ export default function App() {
     if (phase === 'ready' && meta && composedFor.current !== meta.repoName && model.files.size > 0) {
       composedFor.current = meta.repoName;
       audioEngine.loadComposition(model, dna);
-      if (!meta.privateRepo) void submitRanking(meta, dna);
+      if (!meta.privateRepo) {
+        void submitRanking(meta, dna);
+        rememberRepo(meta.repoName, sonyxScore(dna));
+      }
     }
   }, [phase, meta, model, dna]);
 
@@ -91,6 +102,11 @@ export default function App() {
     },
     [compose],
   );
+
+  // The tab title names the open repository (useful with several tabs, and in browser history).
+  useEffect(() => {
+    document.title = meta?.repoName ? `${meta.repoName} · Sonyx` : 'Sonyx: see and hear any codebase';
+  }, [meta?.repoName]);
 
   // Time-lapse: watch the city grow through the repo's history (closes when another repo is composed).
   const onHistory = useCallback(() => {
@@ -176,12 +192,23 @@ export default function App() {
   }, []);
   const onHover = useCallback((id: string | null, x: number, y: number) => hoverStore.set({ id, x, y }), []);
 
-  // Keyboard shortcuts: Space play/pause · 1/2/3 views · T tour · ←/→ tour sections · Esc deselect.
+  // Keyboard shortcuts: Ctrl/Cmd+K find · ? help · Space play/pause · 1/2/3 views · T tour · ←/→ sections · Esc.
+  const [finder, setFinder] = useState(false);
+  const [help, setHelp] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (model.files.size === 0) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && model.files.size > 0) {
+        e.preventDefault();
+        setFinder((v) => !v);
+        return;
+      }
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === '?') {
+        setHelp((v) => !v);
+        return;
+      }
+      if (model.files.size === 0 || finder || help) return;
       const views: Record<string, ViewMode> = { '1': 'city', '2': 'galaxy', '3': 'tree' };
       if (e.key === ' ' && el.tagName !== 'BUTTON') {
         e.preventDefault();
@@ -199,7 +226,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [model.files.size, tour, onTour, selectedId]);
+  }, [model.files.size, tour, onTour, selectedId, finder, help]);
 
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const analysed = nodes.filter((n) => n.analyzed).length;
@@ -224,9 +251,7 @@ export default function App() {
           />
         ) : (
           <div className="embed__loading">
-            <span className="brand__mark" aria-hidden>
-              ◈
-            </span>
+            <LogoMark size={36} />
             <p>{status}</p>
           </div>
         )}
@@ -234,7 +259,7 @@ export default function App() {
         {hasRepo && <HoverTooltip model={model} />}
         {needsSound && (
           <div className="sound-hint panel" role="status">
-            🔊 Tap to play
+            <Volume2 size={16} /> Tap to play
           </div>
         )}
         <EmbedBar repoName={meta?.repoName} status={status} mode={mode} onMode={setMode} />
@@ -259,47 +284,38 @@ export default function App() {
           cityPlan={cityLayout.city}
         />
       ) : (
-        <div className="hero">
-          <h1>
-            Hear your code<span className="hero__accent">.</span>
-          </h1>
-          <p>
-            Sonyx turns any public GitHub repository into a 3D architecture you can explore and an ambient
-            composition generated from its structure: directories become instruments, imports become melodies,
-            concurrency becomes rhythm.
-          </p>
-          <p className="hero__hint">Paste a public GitHub repo URL above, then press Compose. Sound on 🎧</p>
-          <HeroPicks onPick={onCompose} />
-          <div className="hero__links">
-            <a className="hero__wrapped" href="/wrapped.html">
-              ✨ New: <b>Sonyx Wrapped</b>, your GitHub year as music →
-            </a>
-            <a className="hero__wrapped hero__wrapped--battle" href="/battle.html">
-              ⚔️ <b>Repo Battles</b>: which codebase sounds better? →
-            </a>
-          </div>
-        </div>
+        <Landing phase={phase} status={status} onOpen={onCompose} />
       )}
 
       {hasRepo && <HubLabelLayer groups={model.groups} activeKey={activeGroup ?? selected?.group ?? null} />}
 
       {needsSound && (
         <div className="sound-hint panel" role="status">
-          🔊 Click anywhere to turn on the sound
+          <Volume2 size={16} /> Click anywhere to turn on the sound
         </div>
       )}
 
-      <RepoInput
-        phase={phase}
-        status={status}
-        progress={nodes.length ? analysed / nodes.length : null}
-        onCompose={onCompose}
-        collapsible={compact && hasRepo}
-        repoName={meta?.repoName}
-      />
+      <SiteHeader active="explore" floating onShop={openShop}>
+        {/* The landing page has its own big search; the header search appears once a repo is open. */}
+        {(hasRepo || phase === 'analysing') && (
+          <RepoInput
+            phase={phase}
+            status={status}
+            progress={nodes.length ? analysed / nodes.length : null}
+            onCompose={onCompose}
+            collapsible={compact && hasRepo}
+            repoName={meta?.repoName}
+            onFind={hasRepo ? () => setFinder(true) : undefined}
+            onHelp={() => setHelp(true)}
+          />
+        )}
+      </SiteHeader>
       <PricingModal />
+      {finder && <FileFinder model={model} onClose={() => setFinder(false)} onPick={onSelect} />}
+      <ShortcutsHelp open={help} onClose={() => setHelp(false)} />
       <ShopPanel />
       <HistoryPanel />
+      {hasRepo && phase === 'ready' && !selected && <FirstVisitHint />}
       <RecordingIndicator />
       <Toast />
 
@@ -338,7 +354,7 @@ export default function App() {
           {selected ? null : sheet ? (
             <div className="sheet panel" role="dialog" aria-label={`${sheet} controls`}>
               <button className="btn btn--icon sheet__close" onClick={() => setSheet(null)} aria-label="Close">
-                ✕
+                <X size={18} />
               </button>
               {sheet === 'view' && (
                 <ViewControls
@@ -364,7 +380,7 @@ export default function App() {
                 onClick={() => audioEngine.togglePlay()}
                 aria-label={playing ? 'Pause music' : 'Play music'}
               >
-                {playing ? '❚❚' : '▶'}
+                {playing ? <Pause size={18} /> : <Play size={18} />}
               </button>
               <div className="now-playing">
                 <span className="now-playing__chord">{chord || '—'}</span>
@@ -372,7 +388,7 @@ export default function App() {
               </div>
               {tour === 'off' ? (
                 <button className="btn btn--accent" disabled={phase !== 'ready'} onClick={() => onTour('start')}>
-                  ▶ Tour
+                  <Route size={16} /> Tour
                 </button>
               ) : (
                 <>
@@ -380,7 +396,7 @@ export default function App() {
                     {tour === 'running' ? 'Pause tour' : 'Resume tour'}
                   </button>
                   <button className="btn btn--icon" onClick={() => onTour('exit')} aria-label="Exit tour">
-                    ✕
+                    <X size={18} />
                   </button>
                 </>
               )}

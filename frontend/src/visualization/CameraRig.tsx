@@ -56,6 +56,7 @@ export function CameraRig({
 }) {
   const controls = useRef<React.ComponentRef<typeof OrbitControls>>(null);
   const { camera, gl } = useThree();
+  const setEvents = useThree((s) => s.setEvents);
   const flyUntil = useRef(0);
   /** After the tour ends, glide back to the overview until this time (ms). */
   const returnUntil = useRef(0);
@@ -68,13 +69,22 @@ export function CameraRig({
   useEffect(() => {
     const c = controls.current;
     if (!c) return;
+    // While you drag the camera, hover/click hit-testing is paused: testing the pointer against every
+    // building on every mouse move during a drag was a big part of the lag.
     const onStart = () => {
       flyUntil.current = 0;
       returnUntil.current = 0;
+      setEvents({ enabled: false });
     };
+    const onEnd = () => setEvents({ enabled: true });
     c.addEventListener('start', onStart);
-    return () => c.removeEventListener('start', onStart);
-  }, []);
+    c.addEventListener('end', onEnd);
+    return () => {
+      c.removeEventListener('start', onStart);
+      c.removeEventListener('end', onEnd);
+      setEvents({ enabled: true });
+    };
+  }, [setEvents]);
 
   // Only a real drag, pinch or wheel pauses the tour. A plain tap (selecting a building on a phone,
   // or a click) also fires the controls' "start" event, which used to stop the tour by accident.

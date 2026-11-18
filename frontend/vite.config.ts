@@ -27,6 +27,7 @@ export default defineConfig({
       '/login/oauth2': { target: 'http://localhost:8080', changeOrigin: false },
       // Share links, README badges and link-preview images are served by the backend.
       '^/(r|w)/': { target: 'http://localhost:8080' },
+      '^/wrapped/?$': { target: 'http://localhost:8080' },
       '/badge/': { target: 'http://localhost:8080' },
       '/og/': { target: 'http://localhost:8080' },
     },

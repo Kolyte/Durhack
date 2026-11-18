@@ -1,3 +1,4 @@
+import { History, Route } from 'lucide-react';
 import type { MetricOverlay, ViewMode } from '../types';
 import { OVERLAY_INFO } from '../visualization/palette';
 import type { TourState } from '../visualization/CameraRig';
@@ -62,7 +63,7 @@ export function ViewControls({
         <span className="dock__label">Guided tour</span>
         {tour === 'off' ? (
           <button className="btn btn--accent" disabled={!canTour} onClick={() => onTour('start')}>
-            ▶ Start tour
+            <Route size={15} /> Start guided tour
           </button>
         ) : (
           <div className="chips">
@@ -76,7 +77,7 @@ export function ViewControls({
         )}
         {onHistory && (
           <button className="btn btn--ghost" disabled={!canTour} onClick={onHistory} title="Watch the codebase grow through its history">
-            ⏳ Time-lapse
+            <History size={15} /> Time-lapse
           </button>
         )}
       </div>

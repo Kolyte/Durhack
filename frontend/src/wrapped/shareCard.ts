@@ -1,9 +1,15 @@
 import type { Wrapped } from './types';
 
-/** Draws the shareable summary as a 1080×1350 PNG (the portrait size Instagram and X show uncropped). */
-export async function renderShareCard(w: Wrapped): Promise<Blob | null> {
+export type CardFormat = 'post' | 'story';
+
+/**
+ * Draws the shareable summary as a PNG: "post" is 1080×1350 (the portrait size Instagram, X and LinkedIn show
+ * uncropped); "story" is 1080×1920 for Instagram/TikTok stories, with the same card centred.
+ */
+export async function renderShareCard(w: Wrapped, format: CardFormat = 'post'): Promise<Blob | null> {
   const W = 1080;
-  const H = 1350;
+  const H = format === 'story' ? 1920 : 1350;
+  const top = (H - 1350) / 2; // the card's content is laid out for 1350 px and centred
   const canvas = document.createElement('canvas');
   canvas.width = W;
   canvas.height = H;
@@ -18,7 +24,7 @@ export async function renderShareCard(w: Wrapped): Promise<Blob | null> {
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
   // Soft glow blobs.
-  for (const [x, y, r, c] of [[200, 260, 420, 'rgba(45,212,191,0.35)'], [900, 1100, 480, 'rgba(244,114,182,0.35)']] as const) {
+  for (const [x, y, r, c] of [[200, 260 + top, 420, 'rgba(45,212,191,0.35)'], [900, 1100 + top, 480, 'rgba(244,114,182,0.35)']] as const) {
     const g = ctx.createRadialGradient(x, y, 0, x, y, r);
     g.addColorStop(0, c);
     g.addColorStop(1, 'rgba(0,0,0,0)');
@@ -27,15 +33,17 @@ export async function renderShareCard(w: Wrapped): Promise<Blob | null> {
   }
   // Equaliser bars along the bottom.
   for (let i = 0; i < 36; i++) {
-    const h = 30 + Math.abs(Math.sin(i * 1.7 + w.bpm)) * 120;
+    const h = 20 + Math.abs(Math.sin(i * 1.7 + w.bpm)) * 90; // stays below the last line of text
     ctx.fillStyle = `rgba(255,255,255,${0.08 + (i % 3) * 0.03})`;
     ctx.fillRect(40 + i * 28.5, H - 60 - h, 18, h);
   }
 
+  ctx.save();
+  ctx.translate(0, top);
   const font = (size: number, weight = 700) => `${weight} ${size}px Inter, system-ui, -apple-system, Segoe UI, sans-serif`;
   ctx.fillStyle = '#5eead4';
   ctx.font = font(34, 800);
-  ctx.fillText(`◈ SONYX WRAPPED ${w.year}`, 80, 120);
+  ctx.fillText(`SONYX WRAPPED ${w.year}`, 80, 120);
 
   // Avatar (GitHub serves avatars with CORS headers; skip it if that fails).
   const avatar = await loadImage(w.avatarUrl).catch(() => null);
@@ -92,11 +100,12 @@ export async function renderShareCard(w: Wrapped): Promise<Blob | null> {
   if (w.topRepo) {
     ctx.fillStyle = 'rgba(255,255,255,0.75)';
     ctx.font = font(30, 500);
-    ctx.fillText(`Biggest hit: ${w.topRepo.name} ★ ${compact(w.topRepo.stars)}`, 80, 1150, W - 160);
+    ctx.fillText(`Biggest hit: ${w.topRepo.name} · ${compact(w.topRepo.stars)} stars`, 80, 1150, W - 160);
   }
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = font(26, 600);
-  ctx.fillText(`Get yours at ${location.host}/wrapped.html`, 80, H - 24);
+  ctx.restore();
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = font(28, 600);
+  ctx.fillText(`Make yours: ${location.host}/wrapped`, 80, H - 28);
 
   return new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
 }

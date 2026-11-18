@@ -1,3 +1,4 @@
+import { History, Pause, Play, X } from 'lucide-react';
 import { applyPosition, closeHistory, historyStore, pause, play } from '../state/history';
 import { useStore } from '../state/store';
 
@@ -10,9 +11,9 @@ export function HistoryPanel() {
   return (
     <section className="history panel" aria-label="Time-lapse">
       <div className="history__head">
-        <span className="eyebrow">⏳ Time-lapse</span>
+        <span className="eyebrow history__title"><History size={14} /> Time-lapse</span>
         <button className="btn btn--icon" onClick={closeHistory} aria-label="Close time-lapse">
-          ✕
+          <X size={18} />
         </button>
       </div>
       {loading && <p className="note">Reading the repository's history…</p>}
@@ -28,7 +29,7 @@ export function HistoryPanel() {
           </p>
           <div className="history__controls">
             <button className="btn btn--round" onClick={() => (playing ? pause() : play())} aria-label={playing ? 'Pause' : 'Play'}>
-              {playing ? '❚❚' : '▶'}
+              {playing ? <Pause size={16} /> : <Play size={16} />}
             </button>
             <input
               type="range"

@@ -180,8 +180,15 @@ public class GitHubAnalyzerService {
                 emit.accept(new ComposeEvent.ErrorEvent(userToken == null
                         ? "Repository not found. If it's private, connect your private repos (Sonyx Pro)."
                         : "Repository not found, or your GitHub account can't see it."));
+            } else if (msg.startsWith("GitHub HTTP 403") || msg.startsWith("GitHub HTTP 429")) {
+                emit.accept(new ComposeEvent.ErrorEvent(
+                        "GitHub's rate limit was reached. Try again in a few minutes."));
+            } else if (msg.startsWith("GitHub HTTP 5")) {
+                emit.accept(new ComposeEvent.ErrorEvent("GitHub is having trouble right now. Try again shortly."));
+            } else if (msg.startsWith("Use format")) {
+                emit.accept(new ComposeEvent.ErrorEvent("That doesn't look like a repository. Use owner/name, for example facebook/react."));
             } else {
-                emit.accept(new ComposeEvent.ErrorEvent("Failed to analyze repo: " + msg));
+                emit.accept(new ComposeEvent.ErrorEvent("Couldn't read that repository: " + msg));
             }
         }
     }

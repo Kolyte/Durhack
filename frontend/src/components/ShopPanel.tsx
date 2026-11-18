@@ -1,3 +1,4 @@
+import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { visualFor } from '../cosmetics/catalog';
 import { accountStore, signIn } from '../state/account';
@@ -39,7 +40,7 @@ export function ShopPanel() {
           <h2 className="shop__title">Make your city yours</h2>
         </div>
         <button className="btn btn--icon" onClick={closeShop} aria-label="Close shop">
-          ✕
+          <X size={18} />
         </button>
       </div>
 
@@ -69,6 +70,7 @@ export function ShopPanel() {
 
 function ShopCard({ item, wearing, saved, busy, signedIn, canSignIn }: { item: ShopItem; wearing: boolean; saved: boolean; busy: boolean; signedIn: boolean; canSignIn: boolean }) {
   const v = visualFor(item.id);
+  const Icon = v.icon;
   const bundle = item.kind === 'bundle';
   let action: React.ReactNode;
   if (item.owned) {
@@ -77,7 +79,7 @@ function ShopCard({ item, wearing, saved, busy, signedIn, canSignIn }: { item: S
     ) : saved ? (
       <span className="plan-badge">Equipped</span>
     ) : (
-      <button className="btn btn--primary btn--sm" onClick={() => void equip(item)}>
+      <button className="btn btn--ghost btn--sm" onClick={() => void equip(item)}>
         Equip
       </button>
     );
@@ -99,9 +101,9 @@ function ShopCard({ item, wearing, saved, busy, signedIn, canSignIn }: { item: S
     <li className={`shop-card${wearing ? ' is-wearing' : ''}`}>
       <button className="shop-card__preview" style={{ background: v.swatch }} onClick={() => tryOn(item)} disabled={bundle} aria-label={bundle ? item.name : `Try ${item.name} on your city`} title={bundle ? undefined : 'Try it on'}>
         <span className="shop-card__icon" aria-hidden>
-          {v.icon}
+          <Icon size={22} strokeWidth={1.75} />
         </span>
-        {!bundle && <span className="shop-card__try">{wearing ? 'Wearing' : 'Try'}</span>}
+        {!bundle && <span className="shop-card__try">{wearing ? 'On' : 'Try'}</span>}
       </button>
       <div className="shop-card__body">
         <strong>{item.name}</strong>

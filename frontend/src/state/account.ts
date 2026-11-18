@@ -143,7 +143,7 @@ export async function initAccount(): Promise<string | null> {
         await new Promise((r) => setTimeout(r, 1500));
         await loadMe();
       }
-      toast(accountStore.get().me.pro ? 'Welcome to Sonyx Pro ✨' : 'Payment received. Pro will appear in a moment; refresh if not.');
+      toast(accountStore.get().me.pro ? 'Welcome to Sonyx Pro' : 'Payment received. Pro will appear in a moment; refresh if not.');
     }
   }
   let next: string | null = null;
@@ -154,6 +154,6 @@ export async function initAccount(): Promise<string | null> {
     /* ignore */
   }
   if (next === 'upgrade' && me.signedIn && !me.pro && me.billingEnabled) openPricing();
-  if (next === 'private' && me.privateRepos) toast('Private repos connected 🔒 Paste any of your private repos to hear it.');
+  if (next === 'private' && me.privateRepos) toast('Private repos connected. Open any of your private repos to hear it.');
   return me.signedIn ? next : null;
 }

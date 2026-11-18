@@ -116,7 +116,7 @@ async function deliver(blob: Blob, name: string, repoName: string) {
   const f = new File([blob], name, { type: blob.type });
   try {
     if (navigator.canShare?.({ files: [f] }) && matchMedia('(pointer: coarse)').matches) {
-      await navigator.share({ files: [f], text: `What ${repoName} sounds like 🎧 #Sonyx` });
+      await navigator.share({ files: [f], text: `What ${repoName} sounds like, on Sonyx` });
       return;
     }
   } catch {
@@ -127,14 +127,14 @@ async function deliver(blob: Blob, name: string, repoName: string) {
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-  toast('Clip saved: share it anywhere 🎬');
+  toast('Clip saved to your downloads');
 }
 
 function watermark(ctx: CanvasRenderingContext2D, w: number, h: number, repoName: string) {
   const s = Math.max(12, Math.round(Math.min(w, h) / 34));
   ctx.save();
   ctx.font = `700 ${s}px Inter, system-ui, sans-serif`;
-  const label = `◈ Sonyx · ${repoName}`;
+  const label = `Sonyx · ${repoName}`;
   const tw = ctx.measureText(label).width;
   const pad = s * 0.6;
   const x = pad * 1.5;

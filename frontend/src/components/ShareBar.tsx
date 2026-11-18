@@ -1,3 +1,4 @@
+import { Code2, Lock, Share2, Swords, Tag } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from '../state/account';
 import { RecordButton } from './RecordButton';
@@ -15,13 +16,13 @@ export function ShareBar({ repoName, score, privateRepo = false }: { repoName: s
     return (
       <div className="sharebar">
         <RecordButton repoName={repoName} />
-        <p className="note">🔒 Private repo: it isn't ranked, and sharing links, badges and embeds are turned off.</p>
+        <p className="note sharebar__private"><Lock size={13} /> Private repo: not ranked, and sharing links, badges and embeds are off.</p>
       </div>
     );
   }
 
   const share = async () => {
-    const text = `${repoName} scores ${score.toFixed(1)} on Sonyx. Hear what its code sounds like 🎧`;
+    const text = `${repoName} scores ${score.toFixed(1)} on Sonyx. Hear what its code sounds like.`;
     try {
       if (navigator.share) {
         await navigator.share({ title: `${repoName} on Sonyx`, text, url: link });
@@ -45,17 +46,17 @@ export function ShareBar({ repoName, score, privateRepo = false }: { repoName: s
   return (
     <div className="sharebar">
       <button className="btn btn--primary btn--sm" onClick={() => void share()}>
-        ↗ Share
+        <Share2 size={14} /> Share
       </button>
       <RecordButton repoName={repoName} />
       <a className="btn btn--ghost btn--sm" href={`/battle.html?a=${encodeURIComponent(repoName)}`}>
-        ⚔️ Battle
+        <Swords size={14} /> Battle
       </a>
       <button className="btn btn--ghost btn--sm" onClick={() => (setEmbedOpen(!embedOpen), setBadgeOpen(false))} aria-expanded={embedOpen}>
-        &lt;/&gt; Embed
+        <Code2 size={14} /> Embed
       </button>
       <button className="btn btn--ghost btn--sm" onClick={() => (setBadgeOpen(!badgeOpen), setEmbedOpen(false))} aria-expanded={badgeOpen}>
-        🏷️ README badge
+        <Tag size={14} /> README badge
       </button>
       {embedOpen && (
         <div className="sharebar__badge">
