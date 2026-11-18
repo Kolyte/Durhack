@@ -2018,3 +2018,26 @@ kbd { font: 11px var(--mono); padding: 1px 6px; border: 1px solid var(--border-s
   .finder { padding-top: 70px; }
   .finder__loc { display: none; }
 }
+
+/* First-visit hint */
+.first-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 168px;
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 8px 8px 8px 16px;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--surface-solid);
+  animation: shop-up 0.3s ease both;
+  white-space: nowrap;
+}
+.first-hint span { display: inline-flex; align-items: center; gap: 7px; }
+.first-hint svg { color: var(--accent); }
+@media (max-width: 760px), (max-height: 520px) {
+  .first-hint { bottom: calc(var(--safe-b, 8px) + 130px); flex-wrap: wrap; white-space: normal; width: calc(100% - 24px); gap: 8px 14px; }
+}

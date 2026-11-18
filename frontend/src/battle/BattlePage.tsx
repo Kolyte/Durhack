@@ -3,6 +3,8 @@ import { SiteHeader } from '../components/SiteHeader';
 import '../components/siteShell.css';
 import { useCallback, useEffect, useState } from 'react';
 import { analyzeRepo, type Analysis } from '../api/analyze';
+import { fetchFeaturedRankings } from '../api/rankings';
+import { readRecent } from '../state/recent';
 import { apiFetch } from '../api/http';
 import { DNA_LABELS, sonyxScore } from '../model/codeDna';
 
@@ -28,6 +30,12 @@ export function BattlePage() {
   const [b, setB] = useState(params.get('b') ?? '');
   const [sides, setSides] = useState<[Side, Side]>([{ state: 'idle' }, { state: 'idle' }]);
   const [fighting, setFighting] = useState<[string, string] | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>(() => readRecent().map((r) => r.repo));
+  useEffect(() => {
+    fetchFeaturedRankings(10)
+      .then((rows) => setSuggestions((s) => [...new Set([...s, ...rows.map((r) => r.repoName)])]))
+      .catch(() => undefined);
+  }, []);
 
   const run = useCallback((x: string, y: string) => {
     const pair: [string, string] = [clean(x), clean(y)];
@@ -74,9 +82,15 @@ export function BattlePage() {
             run(a, b);
           }}
         >
-          <input className="input" value={a} onChange={(e) => setA(e.target.value)} placeholder="owner/repo" aria-label="First repository" spellCheck={false} />
+          <input className="input" value={a} onChange={(e) => setA(e.target.value)} placeholder="owner/repo" aria-label="First repository" spellCheck={false} list="battle-repos" />
           <span className="battle__vs">VS</span>
-          <input className="input" value={b} onChange={(e) => setB(e.target.value)} placeholder="owner/repo" aria-label="Second repository" spellCheck={false} />
+          <input className="input" value={b} onChange={(e) => setB(e.target.value)} placeholder="owner/repo" aria-label="Second repository" spellCheck={false} list="battle-repos" />
+          {/* Suggestions: repos you opened recently, then the leaderboard's top. */}
+          <datalist id="battle-repos">
+            {suggestions.map((r) => (
+              <option key={r} value={r} />
+            ))}
+          </datalist>
           <button className="btn btn--accent" type="submit" disabled={!a.trim() || !b.trim()}>
             <Swords size={16} /> Compare
           </button>

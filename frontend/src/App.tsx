@@ -12,6 +12,7 @@ import { PlaybackControls } from './components/PlaybackControls';
 import { EmbedBar, IS_EMBED } from './components/EmbedBar';
 import { Landing } from './components/HeroPicks';
 import { FileFinder } from './components/FileFinder';
+import { FirstVisitHint } from './components/FirstVisitHint';
 import { ShortcutsHelp } from './components/ShortcutsHelp';
 import { rememberRepo } from './state/recent';
 import { sonyxScore } from './model/codeDna';
@@ -314,6 +315,7 @@ export default function App() {
       <ShortcutsHelp open={help} onClose={() => setHelp(false)} />
       <ShopPanel />
       <HistoryPanel />
+      {hasRepo && phase === 'ready' && !selected && <FirstVisitHint />}
       <RecordingIndicator />
       <Toast />
 
