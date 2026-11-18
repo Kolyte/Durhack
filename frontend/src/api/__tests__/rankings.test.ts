@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { composerHref, sortRankings, type RankingEntry } from '../rankings';
+import { composerHref, filterRankings, isFiltered, NO_FILTER, overallRanks, sortRankings, type RankingEntry } from '../rankings';
 
 const entry = (repoName: string, over: Partial<RankingEntry>): RankingEntry => ({
   repoName,
@@ -43,5 +43,35 @@ describe('sortRankings', () => {
 describe('composerHref', () => {
   it('links to the main page with the repo pre-filled', () => {
     expect(composerHref('expressjs/express')).toBe('/?repo=expressjs%2Fexpress');
+  });
+});
+
+describe('filterRankings', () => {
+  const now = Date.parse('2026-11-18T12:00:00Z');
+  const rows = [
+    entry('facebook/react', { score: 70, stars: 230000, analyzedAt: '2026-11-18T10:00:00Z' }),
+    entry('vuejs/core', { score: 65, stars: 48000, analyzedAt: '2026-11-15T10:00:00Z' }),
+    entry('someone/tiny-react-thing', { score: 30, stars: 12, analyzedAt: '2026-10-01T10:00:00Z' }),
+  ];
+  const names = (r: RankingEntry[]) => r.map((e) => e.repoName);
+
+  it('matches every search word anywhere in owner/name, ignoring case', () => {
+    expect(names(filterRankings(rows, { ...NO_FILTER, query: 'REACT' }, now))).toEqual(['facebook/react', 'someone/tiny-react-thing']);
+    expect(names(filterRankings(rows, { ...NO_FILTER, query: 'react tiny' }, now))).toEqual(['someone/tiny-react-thing']);
+    expect(names(filterRankings(rows, { ...NO_FILTER, query: 'vuejs/' }, now))).toEqual(['vuejs/core']);
+  });
+
+  it('filters by time period and minimum stars', () => {
+    expect(names(filterRankings(rows, { ...NO_FILTER, period: '24h' }, now))).toEqual(['facebook/react']);
+    expect(names(filterRankings(rows, { ...NO_FILTER, period: '7d' }, now))).toEqual(['facebook/react', 'vuejs/core']);
+    expect(names(filterRankings(rows, { ...NO_FILTER, minStars: 1000 }, now))).toEqual(['facebook/react', 'vuejs/core']);
+  });
+
+  it('knows when anything is filtered, and keeps overall ranks', () => {
+    expect(isFiltered(NO_FILTER)).toBe(false);
+    expect(isFiltered({ ...NO_FILTER, query: ' x ' })).toBe(true);
+    const ranks = overallRanks(rows);
+    expect(ranks.get('vuejs/core')).toBe(2);
+    expect(ranks.get('someone/tiny-react-thing')).toBe(3);
   });
 });

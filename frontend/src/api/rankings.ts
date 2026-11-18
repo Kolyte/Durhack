@@ -83,3 +83,37 @@ export function sortRankings(entries: RankingEntry[], key: RankingSortKey): Rank
 export function composerHref(repoName: string): string {
   return `/?repo=${encodeURIComponent(repoName)}`;
 }
+
+export type RankingPeriod = 'all' | '30d' | '7d' | '24h';
+
+export interface RankingFilter {
+  /** Words that must all appear in "owner/name" (case-insensitive). */
+  query: string;
+  period: RankingPeriod;
+  minStars: number;
+}
+
+export const NO_FILTER: RankingFilter = { query: '', period: 'all', minStars: 0 };
+
+const PERIOD_MS: Record<RankingPeriod, number> = { all: Infinity, '30d': 30 * 864e5, '7d': 7 * 864e5, '24h': 864e5 };
+
+export function isFiltered(f: RankingFilter): boolean {
+  return f.query.trim() !== '' || f.period !== 'all' || f.minStars > 0;
+}
+
+/** Applies search and filters (sorting is separate, see sortRankings). */
+export function filterRankings(entries: RankingEntry[], f: RankingFilter, now = Date.now()): RankingEntry[] {
+  const words = f.query.toLowerCase().split(/\s+/).filter(Boolean);
+  const oldest = now - PERIOD_MS[f.period];
+  return entries.filter(
+    (e) =>
+      words.every((w) => e.repoName.toLowerCase().includes(w)) &&
+      e.stars >= f.minStars &&
+      (f.period === 'all' || Date.parse(e.analyzedAt) >= oldest),
+  );
+}
+
+/** Each repository's position on the overall leaderboard (by score), so filtered lists keep real ranks. */
+export function overallRanks(entries: RankingEntry[]): Map<string, number> {
+  return new Map(sortRankings(entries, 'score').map((e, i) => [e.repoName, i + 1]));
+}
