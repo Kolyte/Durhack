@@ -273,3 +273,25 @@ body { background: var(--bg); }
   .wrapped__preview { display: none; }
   .wrapped__list { grid-template-columns: 1fr; }
 }
+
+/* Share panel */
+.share-panel { display: grid; gap: 10px; width: min(100%, 420px); text-align: left; }
+.share-panel__native { margin: 0; }
+.share-panel__link { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.25); color: var(--muted); }
+.share-panel__link input { flex: 1; min-width: 0; background: transparent; border: 0; outline: none; color: var(--text); font: 13px var(--mono); }
+.share-panel__targets, .share-panel__images { display: flex; flex-wrap: wrap; gap: 6px; }
+.share-panel__targets .btn, .share-panel__images .btn { flex: 1 1 auto; }
+.share-panel__note { margin: 0; color: var(--muted); font-size: 12px; }
+.share-dialog { width: min(480px, 100%); }
+.share-dialog .share-panel { width: 100%; margin-top: 6px; }
+.share__more { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.share__more .btn { color: rgba(255, 255, 255, 0.85); }
+.story .share-panel .btn--ghost { background: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.16); color: #fff; }
+.story .share-panel__note { color: rgba(255, 255, 255, 0.6); }
+.story-stage__share { margin-right: 4px; color: #fff; border-color: rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); }
+@media (min-width: 900px) and (pointer: fine), (min-width: 1100px) {
+  .story .share { gap: 12px; }
+  .story .share__card { padding: 16px; }
+  .story .share__genre { font-size: 32px; }
+}
+.share-dialog .share-panel__note, .modal__card .share-panel__note { font-size: 12px; margin: 0; color: var(--muted); }

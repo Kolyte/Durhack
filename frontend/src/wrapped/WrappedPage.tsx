@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Download, Github, Headphones, Pause, Play, RotateCcw, Share2, Star, Volume2, VolumeX, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Github, Headphones, Pause, Play, RotateCcw, Share2, Sparkles, Star, Volume2, VolumeX, X } from 'lucide-react';
+import { ShareDialog, SharePanel } from './SharePanel';
 import { apiFetch } from '../api/http';
 import { SiteHeader } from '../components/SiteHeader';
-import { compact, renderShareCard } from './shareCard';
+import { compact } from './shareCard';
 import { Soundtrack } from './soundtrack';
 import type { Wrapped } from './types';
 
@@ -56,7 +57,9 @@ export function WrappedPage() {
       .catch(() => undefined);
   }, [initial, fetchWrapped]);
 
-  if (phase.kind === 'story') return <Story data={phase.data} onRestart={restart} />;
+  // Your own Wrapped (signed in as that user) vs someone else's: visitors are invited to make their own.
+  const isOwn = (w: Wrapped) => !!me && me.toLowerCase() === w.login.toLowerCase();
+  if (phase.kind === 'story') return <Story data={phase.data} own={isOwn(phase.data)} onRestart={restart} />;
 
   return (
     <div className="wrapped">
@@ -82,7 +85,7 @@ export function WrappedPage() {
             </button>
           </div>
         )}
-        {phase.kind === 'ready' && <Start data={phase.data} onStart={() => setPhase({ kind: 'story', data: phase.data })} onBack={restart} />}
+        {phase.kind === 'ready' && <Start data={phase.data} own={isOwn(phase.data)} onStart={() => setPhase({ kind: 'story', data: phase.data })} onBack={restart} />}
       </main>
     </div>
   );
@@ -160,20 +163,36 @@ function Ask({ me, onGo }: { me: string | null; onGo: (login: string) => void })
   );
 }
 
-function Start({ data, onStart, onBack }: { data: Wrapped; onStart: () => void; onBack: () => void }) {
+function Start({ data, own, onStart, onBack }: { data: Wrapped; own: boolean; onStart: () => void; onBack: () => void }) {
+  const [sharing, setSharing] = useState(false);
+  // Opened from someone's shared link (not your own): say whose it is, and offer to make yours.
+  const visitor = !own;
   return (
     <div className="wrapped__center">
       {data.avatarUrl && <img className="wrapped__avatar" src={data.avatarUrl} alt="" />}
-      <h1>{data.name || data.login}</h1>
-      <p>Your {data.year} Wrapped is ready. It has sound, so turn your volume up.</p>
+      {visitor && <p className="eyebrow">Sonyx Wrapped {data.year}</p>}
+      <h1>{visitor ? `${data.name || '@' + data.login}'s year in sound` : data.name || data.login}</h1>
+      <p>
+        {visitor ? `${data.genre}, ${data.repos} repos, ${compact(data.stars)} stars. Press play to hear it (sound on).` : `Your ${data.year} Wrapped is ready. It has sound, so turn your volume up.`}
+      </p>
       <div className="wrapped__actions">
         <button className="btn btn--primary wrapped__play" onClick={onStart}>
           <Play size={18} /> Play
         </button>
+        <button className="btn btn--ghost" onClick={() => setSharing(true)}>
+          <Share2 size={16} /> Share
+        </button>
         <button className="btn btn--ghost" onClick={onBack}>
-          Someone else
+          {visitor ? (
+            <>
+              <Sparkles size={16} /> Make yours
+            </>
+          ) : (
+            'Someone else'
+          )}
         </button>
       </div>
+      {sharing && <ShareDialog w={data} own={own} onClose={() => setSharing(false)} />}
     </div>
   );
 }
@@ -200,15 +219,16 @@ function CountUp({ value }: { value: number }) {
  * plays in a phone-shaped frame in the middle, with arrows beside it and keyboard control
  * (arrow keys move, space pauses).
  */
-function Story({ data, onRestart }: { data: Wrapped; onRestart: () => void }) {
-  const slides = useMemo(() => buildSlides(data, onRestart), [data, onRestart]);
+function Story({ data, own, onRestart }: { data: Wrapped; own: boolean; onRestart: () => void }) {
+  const slides = useMemo(() => buildSlides(data, own, onRestart), [data, own, onRestart]);
+  const [sharing, setSharing] = useState(false);
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [held, setHeld] = useState(false);
   const [muted, setMuted] = useState(false);
   const music = useRef<Soundtrack | null>(null);
   const last = index === slides.length - 1;
-  const stopped = paused || held;
+  const stopped = paused || held || sharing;
 
   useEffect(() => {
     const s = new Soundtrack();
@@ -235,11 +255,11 @@ function Story({ data, onRestart }: { data: Wrapped; onRestart: () => void }) {
         e.preventDefault();
         setPaused((p) => !p);
       }
-      if (e.key === 'Escape') onRestart();
+      if (e.key === 'Escape' && !sharing) onRestart();
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);
-  }, [slides.length, onRestart]);
+  }, [slides.length, onRestart, sharing]);
 
   const slide = slides[index];
   const hold = { onPointerDown: () => setHeld(true), onPointerUp: () => setHeld(false), onPointerLeave: () => setHeld(false) };
@@ -254,6 +274,9 @@ function Story({ data, onRestart }: { data: Wrapped; onRestart: () => void }) {
           </span>
         </span>
         <div className="story-stage__tools">
+          <button className="btn btn--ghost btn--sm story-stage__share" onClick={() => setSharing(true)}>
+            <Share2 size={15} /> Share
+          </button>
           <button className="btn btn--icon" onClick={() => setPaused(!paused)} aria-label={paused ? 'Resume' : 'Pause'} title="Space">
             {paused ? <Play size={18} /> : <Pause size={18} />}
           </button>
@@ -283,6 +306,9 @@ function Story({ data, onRestart }: { data: Wrapped; onRestart: () => void }) {
             {data.avatarUrl && <img src={data.avatarUrl} alt="" />}@{data.login}
           </span>
           <div className="story__tools">
+            <button className="btn btn--icon" onClick={() => setSharing(true)} aria-label="Share">
+              <Share2 size={18} />
+            </button>
             <button className="btn btn--icon" onClick={() => setMuted(!muted)} aria-label={muted ? 'Unmute' : 'Mute'}>
               {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
             </button>
@@ -313,6 +339,7 @@ function Story({ data, onRestart }: { data: Wrapped; onRestart: () => void }) {
       <button className="story-arrow story-arrow--next" onClick={next} disabled={last} aria-label="Next">
         <ChevronRight size={24} />
       </button>
+      {sharing && <ShareDialog w={data} own={own} onClose={() => setSharing(false)} />}
       <p className="story-stage__hint">
         <kbd>←</kbd> <kbd>→</kbd> move · <kbd>Space</kbd> pause · <kbd>Esc</kbd> close
       </p>
@@ -326,7 +353,7 @@ interface Slide {
   body: React.ReactNode;
 }
 
-function buildSlides(w: Wrapped, onRestart: () => void): Slide[] {
+function buildSlides(w: Wrapped, own: boolean, onRestart: () => void): Slide[] {
   const slides: Slide[] = [
     {
       id: 'intro',
@@ -465,43 +492,12 @@ function buildSlides(w: Wrapped, onRestart: () => void): Slide[] {
       </>
     ),
   });
-  slides.push({ id: 'share', theme: 'night', body: <ShareSlide w={w} onRestart={onRestart} /> });
+  slides.push({ id: 'share', theme: 'night', body: <ShareSlide w={w} own={own} onRestart={onRestart} /> });
   return slides;
 }
 
-function ShareSlide({ w, onRestart }: { w: Wrapped; onRestart: () => void }) {
-  const [status, setStatus] = useState('');
-  const link = `${location.origin}/w/${encodeURIComponent(w.login)}`; // rich preview card in chats and social posts
+function ShareSlide({ w, own, onRestart }: { w: Wrapped; own: boolean; onRestart: () => void }) {
   const listen = w.topRepo ? `/?repo=${encodeURIComponent(w.topRepo.fullName)}&preset=${encodeURIComponent(w.preset)}` : '/';
-
-  const download = async () => {
-    const blob = await renderShareCard(w);
-    if (!blob) return;
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `sonyx-wrapped-${w.login}-${w.year}.png`;
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  };
-  const share = async () => {
-    const text = `My code sounds like ${w.genre} (${w.persona.title}). What does yours sound like?`;
-    try {
-      const blob = await renderShareCard(w);
-      const file = blob ? new File([blob], `sonyx-wrapped-${w.login}.png`, { type: 'image/png' }) : null;
-      if (file && navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], text, url: link });
-        return;
-      }
-      if (navigator.share) {
-        await navigator.share({ text, url: link });
-        return;
-      }
-      await navigator.clipboard.writeText(`${text} ${link}`);
-      setStatus('Link copied');
-    } catch {
-      /* cancelled */
-    }
-  };
 
   return (
     <div className="share">
@@ -533,21 +529,19 @@ function ShareSlide({ w, onRestart }: { w: Wrapped; onRestart: () => void }) {
         </div>
         <p className="share__langs">{w.languages.slice(0, 3).map((l) => l.name).join(' · ')}</p>
       </div>
-      <div className="share__actions">
-        <button className="btn btn--primary" onClick={() => void share()}>
-          <Share2 size={16} /> Share
-        </button>
-        <button className="btn btn--ghost" onClick={() => void download()}>
-          <Download size={16} /> Download image
-        </button>
-        <a className="btn btn--ghost" href={listen}>
-          <Headphones size={16} /> Hear {w.topRepo ? w.topRepo.name : 'your code'}
+      <SharePanel w={w} own={own} />
+      <div className="share__more">
+        <a className="btn btn--quiet btn--sm" href={listen}>
+          <Headphones size={15} /> Hear {w.topRepo ? w.topRepo.name : 'it'}
         </a>
-        <button className="btn btn--ghost" onClick={onRestart}>
-          Wrap someone else
+        <button className="btn btn--quiet btn--sm" onClick={onRestart}>
+          {own ? 'Wrap someone else' : (
+            <>
+              <Sparkles size={15} /> Make yours
+            </>
+          )}
         </button>
       </div>
-      {status && <p className="note">{status}</p>}
     </div>
   );
 }

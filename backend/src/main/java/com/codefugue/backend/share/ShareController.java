@@ -79,6 +79,12 @@ public class ShareController {
         return html(page(title, description, image, origin() + "/r/" + ref.full(), target));
     }
 
+    /** Short address printed on Wrapped share images. */
+    @GetMapping({"/wrapped", "/wrapped/"})
+    public ResponseEntity<Void> wrappedHome() {
+        return ResponseEntity.status(302).header("Location", "/wrapped.html").build();
+    }
+
     @GetMapping(value = "/w/{login}", produces = MediaType.TEXT_HTML_VALUE)
     public ResponseEntity<String> wrappedPage(@PathVariable String login) {
         if (!WrappedService.validLogin(login)) return ResponseEntity.status(302).header("Location", "/wrapped.html").build();
