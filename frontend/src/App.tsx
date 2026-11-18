@@ -11,6 +11,10 @@ import { MetricsPanel } from './components/MetricsPanel';
 import { PlaybackControls } from './components/PlaybackControls';
 import { EmbedBar, IS_EMBED } from './components/EmbedBar';
 import { Landing } from './components/HeroPicks';
+import { FileFinder } from './components/FileFinder';
+import { ShortcutsHelp } from './components/ShortcutsHelp';
+import { rememberRepo } from './state/recent';
+import { sonyxScore } from './model/codeDna';
 import { SiteHeader } from './components/SiteHeader';
 import { PricingModal } from './components/PricingModal';
 import { RepoInput } from './components/RepoInput';
@@ -80,7 +84,10 @@ export default function App() {
     if (phase === 'ready' && meta && composedFor.current !== meta.repoName && model.files.size > 0) {
       composedFor.current = meta.repoName;
       audioEngine.loadComposition(model, dna);
-      if (!meta.privateRepo) void submitRanking(meta, dna);
+      if (!meta.privateRepo) {
+        void submitRanking(meta, dna);
+        rememberRepo(meta.repoName, sonyxScore(dna));
+      }
     }
   }, [phase, meta, model, dna]);
 
@@ -94,6 +101,11 @@ export default function App() {
     },
     [compose],
   );
+
+  // The tab title names the open repository (useful with several tabs, and in browser history).
+  useEffect(() => {
+    document.title = meta?.repoName ? `${meta.repoName} · Sonyx` : 'Sonyx: see and hear any codebase';
+  }, [meta?.repoName]);
 
   // Time-lapse: watch the city grow through the repo's history (closes when another repo is composed).
   const onHistory = useCallback(() => {
@@ -179,12 +191,23 @@ export default function App() {
   }, []);
   const onHover = useCallback((id: string | null, x: number, y: number) => hoverStore.set({ id, x, y }), []);
 
-  // Keyboard shortcuts: Space play/pause · 1/2/3 views · T tour · ←/→ tour sections · Esc deselect.
+  // Keyboard shortcuts: Ctrl/Cmd+K find · ? help · Space play/pause · 1/2/3 views · T tour · ←/→ sections · Esc.
+  const [finder, setFinder] = useState(false);
+  const [help, setHelp] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement;
-      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || e.metaKey || e.ctrlKey || e.altKey) return;
-      if (model.files.size === 0) return;
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k' && model.files.size > 0) {
+        e.preventDefault();
+        setFinder((v) => !v);
+        return;
+      }
+      if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === '?') {
+        setHelp((v) => !v);
+        return;
+      }
+      if (model.files.size === 0 || finder || help) return;
       const views: Record<string, ViewMode> = { '1': 'city', '2': 'galaxy', '3': 'tree' };
       if (e.key === ' ' && el.tagName !== 'BUTTON') {
         e.preventDefault();
@@ -202,7 +225,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [model.files.size, tour, onTour, selectedId]);
+  }, [model.files.size, tour, onTour, selectedId, finder, help]);
 
   const selected = selectedId ? model.files.get(selectedId) : undefined;
   const analysed = nodes.filter((n) => n.analyzed).length;
@@ -281,10 +304,14 @@ export default function App() {
             onCompose={onCompose}
             collapsible={compact && hasRepo}
             repoName={meta?.repoName}
+            onFind={hasRepo ? () => setFinder(true) : undefined}
+            onHelp={() => setHelp(true)}
           />
         )}
       </SiteHeader>
       <PricingModal />
+      {finder && <FileFinder model={model} onClose={() => setFinder(false)} onPick={onSelect} />}
+      <ShortcutsHelp open={help} onClose={() => setHelp(false)} />
       <ShopPanel />
       <HistoryPanel />
       <RecordingIndicator />

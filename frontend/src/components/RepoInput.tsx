@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowRight, Github, Loader2, Lock, Search } from 'lucide-react';
+import { ArrowRight, FileSearch, Github, Keyboard, Loader2, Lock, Search } from 'lucide-react';
 import type { Phase } from '../state/useComposeStream';
 import { accountStore, connectPrivateRepos, openPricing, signIn } from '../state/account';
 import { useStore } from '../state/store';
@@ -39,6 +39,8 @@ export function RepoInput({
   onCompose,
   collapsible = false,
   repoName,
+  onFind,
+  onHelp,
 }: {
   phase: Phase;
   status: string;
@@ -47,6 +49,9 @@ export function RepoInput({
   /** Phones: once a repo is loaded, shrink to the repo name so the 3D view gets the screen. */
   collapsible?: boolean;
   repoName?: string;
+  /** Opens the file finder (once a repo is loaded). */
+  onFind?: () => void;
+  onHelp?: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [url, setUrl] = useState(() => new URLSearchParams(window.location.search).get('repo') ?? '');
@@ -68,11 +73,18 @@ export function RepoInput({
   if (collapsible && !expanded) {
     return (
       <div className="repo-search repo-search--collapsed">
-        <button className="repo-pill" onClick={() => setExpanded(true)} aria-label="Change repository">
-          {busy ? <Loader2 size={15} className="spin" /> : <Github size={15} />}
-          <span>{phase === 'ready' && repoName ? repoName : status}</span>
-          <Search size={15} className="repo-pill__edit" />
-        </button>
+        <div className="repo-pill__row">
+          <button className="repo-pill" onClick={() => setExpanded(true)} aria-label="Change repository">
+            {busy ? <Loader2 size={15} className="spin" /> : <Github size={15} />}
+            <span>{phase === 'ready' && repoName ? repoName : status}</span>
+            <Search size={15} className="repo-pill__edit" />
+          </button>
+          {onFind && (
+            <button className="btn btn--icon" onClick={onFind} aria-label="Find a file">
+              <FileSearch size={18} />
+            </button>
+          )}
+        </div>
         {progressBar}
       </div>
     );
@@ -102,6 +114,18 @@ export function RepoInput({
           {busy ? <Loader2 size={16} className="spin" /> : <ArrowRight size={16} />}
           <span className="repo-form__label">{busy ? 'Reading' : 'Open'}</span>
         </button>
+        {onFind && (
+          <button type="button" className="btn btn--quiet repo-form__tool" onClick={onFind} title="Find a file (Ctrl+K)">
+            <FileSearch size={16} />
+            <span className="repo-form__label">Find file</span>
+            <kbd className="repo-form__kbd">Ctrl K</kbd>
+          </button>
+        )}
+        {onHelp && (
+          <button type="button" className="btn btn--icon repo-form__tool repo-form__help" onClick={onHelp} title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+            <Keyboard size={16} />
+          </button>
+        )}
       </form>
       {progressBar}
       {(busy || phase === 'error') && (

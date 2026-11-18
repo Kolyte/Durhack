@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { ArrowRight, Box, Disc3, Headphones, Loader2, MousePointerClick, Shuffle, Swords, Trophy } from 'lucide-react';
+import { ArrowRight, Box, Clock, Disc3, Headphones, Loader2, MousePointerClick, Shuffle, Swords, Trophy } from 'lucide-react';
+import { forgetRecent, readRecent, type RecentRepo } from '../state/recent';
 import { fetchFeaturedRankings, type RankingEntry } from '../api/rankings';
 import type { Phase } from '../state/useComposeStream';
 import { normalizeRepoUrl } from './RepoInput';
@@ -32,6 +33,7 @@ const MORE = [
 export function Landing({ phase, status, onOpen }: { phase: Phase; status: string; onOpen: (url: string) => void }) {
   const [value, setValue] = useState('');
   const [top, setTop] = useState<RankingEntry[]>([]);
+  const [recent, setRecent] = useState<RecentRepo[]>(readRecent);
   useEffect(() => {
     let alive = true;
     fetchFeaturedRankings(3)
@@ -81,6 +83,28 @@ export function Landing({ phase, status, onOpen }: { phase: Phase; status: strin
         </form>
         {(busy || phase === 'error') && <p className={`landing__status${phase === 'error' ? ' is-error' : ''}`}>{status}</p>}
 
+        {recent.length > 0 && (
+          <div className="examples examples--recent">
+            <span className="examples__label">
+              <Clock size={13} /> Recent
+            </span>
+            <ul>
+              {recent.map((r) => (
+                <li key={r.repo}>
+                  <button className="example" onClick={() => open(r.repo)} title={`Open ${r.repo} again`}>
+                    <span className="example__name">{r.repo}</span>
+                    <span className="example__lang">{r.score.toFixed(1)}</span>
+                  </button>
+                </li>
+              ))}
+              <li>
+                <button className="link examples__clear" onClick={() => (forgetRecent(), setRecent([]))}>
+                  Clear
+                </button>
+              </li>
+            </ul>
+          </div>
+        )}
         <div className="examples">
           <span className="examples__label">Try one</span>
           <ul>

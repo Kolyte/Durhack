@@ -1,4 +1,4 @@
-import { Loader2, Music2, Sparkles, X } from 'lucide-react';
+import { ExternalLink, Github, Loader2, Music2, Sparkles, X } from 'lucide-react';
 import { audioEngine, engineStore } from '../audio/AudioEngine';
 import { describeFile } from '../audio/composer';
 import { PRESETS } from '../audio/presets';
@@ -113,6 +113,16 @@ export function FileInspector({
           <div className="eyebrow">{ROLE_LABEL[file.kind]}</div>
           <h2 className="inspector__name">{name}</h2>
           <div className="inspector__path">{file.path}</div>
+          {meta && !meta.privateRepo && (
+            <a
+              className="inspector__gh"
+              href={`https://github.com/${meta.repoName}/blob/${encodeURIComponent(meta.branch)}/${file.path.split('/').map(encodeURIComponent).join('/')}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Github size={13} /> View on GitHub <ExternalLink size={12} />
+            </a>
+          )}
         </div>
         <button className="btn btn--icon" onClick={onClose} aria-label="Close inspector">
           <X size={18} />
